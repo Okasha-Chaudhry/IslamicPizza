@@ -59,12 +59,15 @@ const api = {
     list: (): Promise<ApiResult<PrinterInfo[]>> => ipcRenderer.invoke('printers:list')
   },
   print: {
+    test: (): Promise<ApiResult<void>> => ipcRenderer.invoke('print:test'),
     receipt: (order: OrderWithItems): Promise<ApiResult<void>> =>
       ipcRenderer.invoke('print:receipt', order),
     kitchen: (order: OrderWithItems): Promise<ApiResult<void>> =>
       ipcRenderer.invoke('print:kitchen', order)
   },
   orders: {
+    list: (filter?: { date?: string; status?: OrderStatus | 'all' }): Promise<ApiResult<OrderWithItems[]>> =>
+      ipcRenderer.invoke('orders:list', filter),
     create: (input: CreateOrderInput): Promise<ApiResult<OrderWithItems>> =>
       ipcRenderer.invoke('orders:create', input),
     updateStatus: (id: number, status: OrderStatus): Promise<ApiResult<OrderWithItems>> =>

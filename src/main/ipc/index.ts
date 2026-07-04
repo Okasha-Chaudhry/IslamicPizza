@@ -54,6 +54,15 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle('print:test', async () => {
+    try {
+      await printService.printTest()
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Print failed' }
+    }
+  })
+
   ipcMain.handle('print:receipt', async (_e, order: OrderWithItems) => {
     try {
       await printService.printReceipt(order)
@@ -73,6 +82,7 @@ export function registerIpcHandlers(): void {
   })
 
   handle('orders:create', ordersService.createOrder)
+  handle('orders:list', ordersService.listOrders)
   handle('orders:updateStatus', ordersService.updateOrderStatus)
 
   handle('waiters:list', waitersService.list)

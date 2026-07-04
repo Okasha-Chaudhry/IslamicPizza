@@ -104,6 +104,81 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
   return tx()
 }
 
+export interface OrderListFilter {
+  date?: string // YYYY-MM-DD
+  status?: OrderStatus | 'all'
+}
+
+export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
+  const sqlite = getSqlite()
+  const conditions: string[] = []
+  const params: unknown[] = []
+
+  if (filter.date) {
+    conditions.push(`date(created_at) = ?`)
+    params.push(filter.date)
+  }
+  if (filter.status && filter.status !== 'all') {
+    conditions.push(`status = ?`)
+    params.push(filter.status)
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const orderRows = sqlite
+    .prepare(`SELECT * FROM orders ${where} ORDER BY id DESC LIMIT 500`)
+    .all(...params) as Record<string, unknown>[]
+
+  if (orderRows.length === 0) return []
+
+  const ids = orderRows.map((o) => o.id as number)
+  const itemRows = sqlite
+    .prepare(
+      `SELECT * FROM order_items WHERE order_id IN (${ids.map(() => '?').join(',')})`
+    )
+    .all(...ids) as Record<string, unknown>[]
+
+  const itemsByOrder = new Map<number, Record<string, unknown>[]>()
+  for (const item of itemRows) {
+    const oid = item.order_id as number
+    const arr = itemsByOrder.get(oid) ?? []
+    arr.push(item)
+    itemsByOrder.set(oid, arr)
+  }
+
+  const mapItem = (r: Record<string, unknown>): Record<string, unknown> => ({
+    id: r.id,
+    orderId: r.order_id,
+    productId: r.product_id,
+    variantId: r.variant_id,
+    productName: r.product_name,
+    variantName: r.variant_name,
+    unitPrice: r.unit_price,
+    quantity: r.quantity,
+    note: r.note,
+    lineTotal: r.line_total
+  })
+
+  return orderRows.map((r) => ({
+    id: r.id,
+    orderNumber: r.order_number,
+    orderType: r.order_type,
+    tableId: r.table_id,
+    waiterId: r.waiter_id,
+    status: r.status,
+    subtotal: r.subtotal,
+    discountPercent: r.discount_percent,
+    discount: r.discount,
+    taxAmount: r.tax_amount,
+    total: r.total,
+    note: r.note,
+    customerPhone: r.customer_phone,
+    customerAddress: r.customer_address,
+    createdAt: r.created_at,
+    paidAt: r.paid_at,
+    items: (itemsByOrder.get(r.id as number) ?? []).map(mapItem)
+  })) as unknown as OrderWithItems[]
+}
+
 export function updateOrderStatus(id: number, status: OrderStatus): OrderWithItems {
   const db = getDb()
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ')

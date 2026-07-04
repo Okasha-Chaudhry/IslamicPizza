@@ -142,9 +142,20 @@ export default function Settings(): React.JSX.Element {
         <h2 className="text-lg font-semibold">Printers</h2>
         {printerSelect('Receipt Printer', 'defaultPrinter')}
         {printerSelect('Kitchen Printer', 'kitchenPrinter')}
+        <Button
+          variant="outline"
+          className="h-11"
+          onClick={async () => {
+            setMsg('')
+            const res = await window.api.print.test()
+            setMsg(res.ok ? 'Test print sent - check the printer' : `Test print failed: ${res.error}`)
+          }}
+        >
+          Test Print
+        </Button>
         <p className="text-xs text-muted-foreground">
-          Printers are detected from Windows. Install/connect a printer and reopen this page to
-          refresh.
+          Printers are detected from Windows. If a test print does not come out, make sure the
+          printer cable is in its usual USB socket, then power the printer off and on.
         </p>
       </section>
 
