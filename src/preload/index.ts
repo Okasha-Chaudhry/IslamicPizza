@@ -16,7 +16,8 @@ import type {
   OrderWithItems,
   OrderStatus,
   AppSettings,
-  PrinterInfo
+  PrinterInfo,
+  SalesReport
 } from '../shared/types'
 
 function namedEntityApi(prefix: string): {
@@ -58,8 +59,13 @@ const api = {
   printers: {
     list: (): Promise<ApiResult<PrinterInfo[]>> => ipcRenderer.invoke('printers:list')
   },
+  reports: {
+    sales: (filter: { from: string; to: string }): Promise<ApiResult<SalesReport>> =>
+      ipcRenderer.invoke('reports:sales', filter)
+  },
   print: {
     test: (): Promise<ApiResult<void>> => ipcRenderer.invoke('print:test'),
+    report: (report: SalesReport): Promise<ApiResult<void>> => ipcRenderer.invoke('print:report', report),
     receipt: (order: OrderWithItems): Promise<ApiResult<void>> =>
       ipcRenderer.invoke('print:receipt', order),
     kitchen: (order: OrderWithItems): Promise<ApiResult<void>> =>

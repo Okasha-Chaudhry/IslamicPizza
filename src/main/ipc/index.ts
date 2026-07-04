@@ -6,6 +6,7 @@ import * as productsService from '../services/products.service'
 import * as ordersService from '../services/orders.service'
 import * as settingsService from '../services/settings.service'
 import * as printService from '../printing/print.service'
+import * as reportsService from '../services/reports.service'
 import type { OrderWithItems } from '../../shared/types'
 import { BrowserWindow } from 'electron'
 
@@ -51,6 +52,17 @@ export function registerIpcHandlers(): void {
       return { ok: true, data: printers.map((p) => ({ name: p.name, isDefault: p.isDefault })) }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Failed to list printers' }
+    }
+  })
+
+  handle('reports:sales', reportsService.getSalesReport)
+
+  ipcMain.handle('print:report', async (_e, report) => {
+    try {
+      await printService.printReport(report)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Print failed' }
     }
   })
 

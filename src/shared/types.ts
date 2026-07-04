@@ -160,6 +160,37 @@ export interface PrinterInfo {
   isDefault: boolean
 }
 
+export interface SalesSummary {
+  paidOrders: number
+  paidRevenue: number
+  pendingOrders: number
+  pendingAmount: number
+  cancelledOrders: number
+  totalDiscount: number
+  avgOrderValue: number
+}
+
+export interface PopularProduct {
+  productName: string
+  variantName: string | null
+  quantity: number
+  revenue: number
+}
+
+export interface DailySales {
+  date: string
+  orders: number
+  revenue: number
+}
+
+export interface SalesReport {
+  from: string
+  to: string
+  summary: SalesSummary
+  popular: PopularProduct[]
+  daily: DailySales[]
+}
+
 export interface ApiResult<T> {
   ok: boolean
   data?: T
