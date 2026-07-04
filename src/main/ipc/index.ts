@@ -7,6 +7,7 @@ import * as ordersService from '../services/orders.service'
 import * as settingsService from '../services/settings.service'
 import * as printService from '../printing/print.service'
 import * as reportsService from '../services/reports.service'
+import * as backupService from '../services/backup.service'
 import type { OrderWithItems } from '../../shared/types'
 import { BrowserWindow } from 'electron'
 
@@ -56,6 +57,26 @@ export function registerIpcHandlers(): void {
   })
 
   handle('reports:sales', reportsService.getSalesReport)
+
+  ipcMain.handle('backup:create', async () => {
+    try {
+      const path = await backupService.backupDatabase()
+      return { ok: true, data: path }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Backup failed' }
+    }
+  })
+
+  ipcMain.handle('backup:restore', async () => {
+    try {
+      const path = await backupService.restoreDatabase()
+      return { ok: true, data: path }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Restore failed' }
+    }
+  })
+
+  handle('backup:check', backupService.checkIntegrity)
 
   ipcMain.handle('print:report', async (_e, report) => {
     try {

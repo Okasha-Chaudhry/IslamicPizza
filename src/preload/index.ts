@@ -59,6 +59,11 @@ const api = {
   printers: {
     list: (): Promise<ApiResult<PrinterInfo[]>> => ipcRenderer.invoke('printers:list')
   },
+  backup: {
+    create: (): Promise<ApiResult<string>> => ipcRenderer.invoke('backup:create'),
+    restore: (): Promise<ApiResult<string>> => ipcRenderer.invoke('backup:restore'),
+    check: (): Promise<ApiResult<string>> => ipcRenderer.invoke('backup:check')
+  },
   reports: {
     sales: (filter: { from: string; to: string }): Promise<ApiResult<SalesReport>> =>
       ipcRenderer.invoke('reports:sales', filter)

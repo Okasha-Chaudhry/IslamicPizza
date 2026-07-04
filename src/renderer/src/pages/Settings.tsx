@@ -159,6 +159,49 @@ export default function Settings(): React.JSX.Element {
         </p>
       </section>
 
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">Backup &amp; Restore</h2>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="h-11"
+            onClick={async () => {
+              setMsg('')
+              const res = await window.api.backup.create()
+              setMsg(res.ok ? `Backup saved: ${res.data}` : `Backup failed: ${res.error}`)
+            }}
+          >
+            Create Backup
+          </Button>
+          <Button
+            variant="outline"
+            className="h-11"
+            onClick={async () => {
+              if (!confirm('Restore will REPLACE all current data with the backup. Continue?')) return
+              setMsg('')
+              const res = await window.api.backup.restore()
+              setMsg(res.ok ? `Restored from: ${res.data}` : `Restore failed: ${res.error}`)
+            }}
+          >
+            Restore Backup
+          </Button>
+          <Button
+            variant="outline"
+            className="h-11"
+            onClick={async () => {
+              setMsg('')
+              const res = await window.api.backup.check()
+              setMsg(res.ok ? (res.data ?? 'OK') : `Check failed: ${res.error}`)
+            }}
+          >
+            Check Integrity
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Create backups regularly and keep them on a USB drive. Restore replaces all current data.
+        </p>
+      </section>
+
       {msg && <p className="text-sm">{msg}</p>}
       <Button className="h-12 px-8" disabled={saving} onClick={() => void save()}>
         Save Settings
