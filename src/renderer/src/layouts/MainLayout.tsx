@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -48,6 +48,14 @@ export default function MainLayout(): React.JSX.Element {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const visibleItems = navItems.filter((i) => !i.adminOnly || user?.role === 'admin')
+  const [restaurantName, setRestaurantName] = useState('Restaurant POS')
+
+  useEffect(() => {
+    void (async () => {
+      const res = await window.api.settings.get()
+      if (res.ok && res.data?.restaurantName) setRestaurantName(res.data.restaurantName)
+    })()
+  }, [])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
@@ -66,7 +74,7 @@ export default function MainLayout(): React.JSX.Element {
       <aside className="flex w-56 shrink-0 flex-col border-r bg-card">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <img src={logo} alt="" className="size-9" />
-          <span className="text-base font-bold tracking-tight">Restaurant POS</span>
+          <span className="truncate text-base font-bold tracking-tight">{restaurantName}</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-2">
           {visibleItems.map((item) => (
