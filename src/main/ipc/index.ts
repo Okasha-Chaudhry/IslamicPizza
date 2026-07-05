@@ -9,6 +9,7 @@ import * as printService from '../printing/print.service'
 import * as reportsService from '../services/reports.service'
 import * as backupService from '../services/backup.service'
 import * as usersService from '../services/users.service'
+import * as licenseService from '../services/license.service'
 import type { OrderWithItems } from '../../shared/types'
 import { BrowserWindow } from 'electron'
 
@@ -42,6 +43,9 @@ export function registerIpcHandlers(): void {
   handle('tables:create', tablesService.create)
   handle('tables:update', tablesService.update)
   handle('tables:delete', tablesService.remove)
+
+  handle('license:status', licenseService.getLicenseStatus)
+  handle('license:activate', licenseService.activate)
 
   handle('auth:hasAnyUser', usersService.hasAnyUser)
   handle('auth:setupAdmin', usersService.setupAdmin)

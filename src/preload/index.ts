@@ -19,7 +19,8 @@ import type {
   PrinterInfo,
   SalesReport,
   SafeUser,
-  UserRole
+  UserRole,
+  LicenseStatus
 } from '../shared/types'
 
 function namedEntityApi(prefix: string): {
@@ -52,6 +53,11 @@ const api = {
     update: (input: UpdateProductInput): Promise<ApiResult<Product>> =>
       ipcRenderer.invoke('products:update', input),
     delete: (id: number): Promise<ApiResult<void>> => ipcRenderer.invoke('products:delete', id)
+  },
+  license: {
+    status: (): Promise<ApiResult<LicenseStatus>> => ipcRenderer.invoke('license:status'),
+    activate: (key: string): Promise<ApiResult<LicenseStatus>> =>
+      ipcRenderer.invoke('license:activate', key)
   },
   auth: {
     hasAnyUser: (): Promise<ApiResult<boolean>> => ipcRenderer.invoke('auth:hasAnyUser'),

@@ -2,6 +2,9 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { useAuthStore } from '@/stores/auth-store'
 import LoginScreen from '@/pages/LoginScreen'
+import ActivationScreen from '@/pages/ActivationScreen'
+import { useEffect, useState } from 'react'
+import type { LicenseStatus } from '../../shared/types'
 import MainLayout from '@/layouts/MainLayout'
 import Dashboard from '@/pages/Dashboard'
 import NewOrder from '@/pages/NewOrder'
@@ -21,6 +24,37 @@ function AdminOnly({ children }: { children: React.JSX.Element }): React.JSX.Ele
 
 function App(): React.JSX.Element {
   const user = useAuthStore((s) => s.user)
+  const [license, setLicense] = useState<LicenseStatus | null>(null)
+
+  useEffect(() => {
+    void (async () => {
+      const res = await window.api.license.status()
+      if (res.ok && res.data) setLicense(res.data)
+    })()
+  }, [])
+
+  if (license === null) {
+    return (
+      <ThemeProvider>
+        <div className="flex h-screen items-center justify-center bg-background" />
+      </ThemeProvider>
+    )
+  }
+
+  if (!license.activated) {
+    return (
+      <ThemeProvider>
+        <ActivationScreen
+          status={license}
+          onActivated={() => {
+            void window.api.license.status().then((r) => {
+              if (r.ok && r.data) setLicense(r.data)
+            })
+          }}
+        />
+      </ThemeProvider>
+    )
+  }
 
   return (
     <ThemeProvider>

@@ -203,6 +203,14 @@ export interface SafeUser {
   createdAt: string
 }
 
+export interface LicenseStatus {
+  activated: boolean
+  machineId: string
+  expiresOn: string | null
+  daysLeft: number | null
+  error?: string
+}
+
 export interface ApiResult<T> {
   ok: boolean
   data?: T
