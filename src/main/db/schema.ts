@@ -65,6 +65,7 @@ export const orders = sqliteTable('orders', {
   taxAmount: integer('tax_amount').notNull().default(0),
   total: integer('total').notNull().default(0),
   note: text('note'),
+  userId: integer('user_id').references(() => users.id),
   customerPhone: text('customer_phone'),
   customerAddress: text('customer_address'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`),
@@ -84,6 +85,16 @@ export const orderItems = sqliteTable('order_items', {
   quantity: integer('quantity').notNull().default(1),
   note: text('note'),
   lineTotal: integer('line_total').notNull()
+})
+
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  role: text('role', { enum: ['admin', 'cashier'] }).notNull().default('cashier'),
+  pinHash: text('pin_hash').notNull(),
+  pinSalt: text('pin_salt').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
 })
 
 export const settings = sqliteTable('settings', {

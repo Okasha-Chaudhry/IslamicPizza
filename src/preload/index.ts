@@ -17,7 +17,9 @@ import type {
   OrderStatus,
   AppSettings,
   PrinterInfo,
-  SalesReport
+  SalesReport,
+  SafeUser,
+  UserRole
 } from '../shared/types'
 
 function namedEntityApi(prefix: string): {
@@ -50,6 +52,19 @@ const api = {
     update: (input: UpdateProductInput): Promise<ApiResult<Product>> =>
       ipcRenderer.invoke('products:update', input),
     delete: (id: number): Promise<ApiResult<void>> => ipcRenderer.invoke('products:delete', id)
+  },
+  auth: {
+    hasAnyUser: (): Promise<ApiResult<boolean>> => ipcRenderer.invoke('auth:hasAnyUser'),
+    setupAdmin: (name: string, pin: string): Promise<ApiResult<SafeUser>> =>
+      ipcRenderer.invoke('auth:setupAdmin', name, pin),
+    login: (pin: string): Promise<ApiResult<SafeUser>> => ipcRenderer.invoke('auth:login', pin)
+  },
+  users: {
+    list: (): Promise<ApiResult<SafeUser[]>> => ipcRenderer.invoke('users:list'),
+    create: (input: { name: string; role: UserRole; pin: string }): Promise<ApiResult<SafeUser>> =>
+      ipcRenderer.invoke('users:create', input),
+    update: (input: { id: number; name?: string; role?: UserRole; isActive?: boolean; pin?: string }): Promise<ApiResult<SafeUser>> =>
+      ipcRenderer.invoke('users:update', input)
   },
   settings: {
     get: (): Promise<ApiResult<AppSettings>> => ipcRenderer.invoke('settings:get'),

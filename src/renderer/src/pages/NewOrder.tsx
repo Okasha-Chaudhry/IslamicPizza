@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import VariantPickerDialog from '@/components/orders/VariantPickerDialog'
 import { useCartStore, cartSubtotal } from '@/stores/cart-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import type {
   Category,
@@ -45,6 +46,8 @@ function rankProducts(products: ProductWithVariants[], query: string): ProductWi
 
 export default function NewOrder(): React.JSX.Element {
   const cart = useCartStore()
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'admin'
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [tables, setTables] = useState<NamedEntity[]>([])
@@ -185,6 +188,7 @@ export default function NewOrder(): React.JSX.Element {
     setSaving(true)
     const markPaid = action === 'paid_print' || action === 'paid_only'
     const input: CreateOrderInput = {
+      userId: user?.id ?? null,
       orderType: cart.orderType,
       tableId: cart.tableId,
       waiterId: cart.waiterId,
@@ -459,6 +463,7 @@ export default function NewOrder(): React.JSX.Element {
             <span>Subtotal</span>
             <span>Rs {subtotal}</span>
           </div>
+          {isAdmin && (
           <div className="flex items-center justify-between gap-2 text-sm">
             <span>Discount %</span>
             <div className="flex items-center gap-2">
@@ -474,6 +479,7 @@ export default function NewOrder(): React.JSX.Element {
               <span className="w-16 text-right text-muted-foreground">- Rs {discountAmount}</span>
             </div>
           </div>
+          )}
           <div className="flex items-center justify-between border-t pt-2 text-lg font-bold">
             <span>Total</span>
             <span>Rs {total}</span>

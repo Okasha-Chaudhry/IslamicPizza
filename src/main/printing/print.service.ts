@@ -1,7 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { restaurantTables, waiters } from '../db/schema'
+import { restaurantTables, waiters, users } from '../db/schema'
 import { getSettings } from '../services/settings.service'
 import { buildReceiptHtml } from './receipt-template'
 import type { OrderWithItems } from '../../shared/types'
@@ -45,9 +45,13 @@ function printHtml(html: string, printerName: string, pageWidthMm: number): Prom
   })
 }
 
-function resolveNames(order: OrderWithItems): { tableName?: string; waiterName?: string } {
+function resolveNames(order: OrderWithItems): { tableName?: string; waiterName?: string; servedBy?: string } {
   const db = getDb()
-  const out: { tableName?: string; waiterName?: string } = {}
+  const out: { tableName?: string; waiterName?: string; servedBy?: string } = {}
+  if (order.userId != null) {
+    const u = db.select().from(users).where(eq(users.id, order.userId)).get()
+    if (u) out.servedBy = u.name
+  }
   if (order.tableId != null) {
     const t = db.select().from(restaurantTables).where(eq(restaurantTables.id, order.tableId)).get()
     if (t) out.tableName = t.name

@@ -18,7 +18,7 @@ export function buildReceiptHtml(
   order: OrderWithItems,
   settings: AppSettings,
   mode: 'receipt' | 'kitchen',
-  extra: { tableName?: string; waiterName?: string } = {}
+  extra: { tableName?: string; waiterName?: string; servedBy?: string } = {}
 ): string {
   const isKitchen = mode === 'kitchen'
   const width = settings.receiptWidth
@@ -34,6 +34,7 @@ export function buildReceiptHtml(
     if (extra.tableName) metaLines.push(`Table: ${esc(extra.tableName)}`)
     if (extra.waiterName) metaLines.push(`Waiter: ${esc(extra.waiterName)}`)
   }
+  if (!isKitchen && extra.servedBy) metaLines.push(`Served by: ${esc(extra.servedBy)}`)
   if (order.orderType === 'delivery') {
     if (order.customerPhone) metaLines.push(`Phone: ${esc(order.customerPhone)}`)
     if (order.customerAddress) metaLines.push(`Address: ${esc(order.customerAddress)}`)

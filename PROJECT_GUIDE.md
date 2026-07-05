@@ -122,6 +122,33 @@ menu card. Delete the .db* files to re-seed in dev.
 - Extra Large Pizza is its own menu item with variants 2300/2500/2700
   (price depends on flavor tier; flavor written in item note)
 
+## 6.5 AUTH / LOGIN SYSTEM (Milestone 13)
+
+- PIN-based (4-6 digits), two roles: admin | cashier
+- users table (v3 migration): pin stored as SHA-256(salt:pin) + per-user
+  salt (Node crypto). PIN hashes NEVER sent to renderer (SafeUser type).
+- First run (no users): Setup Admin screen -> creates owner account.
+  After that: PIN pad lock screen; PIN alone identifies the user.
+- Session lives in Zustand auth-store (memory only). Lock button in
+  sidebar logs out. App restart = locked.
+- Role enforcement in THREE places (all must stay in sync):
+  1. MainLayout navItems adminOnly flags (sidebar visibility)
+  2. App.tsx AdminOnly route wrapper (URL-level guard)
+  3. Feature locks: discount field (NewOrder) + cancel button (Orders)
+     are admin-only
+- Users management: Settings -> Users section (UsersManager.tsx).
+  Add user, edit name/role, reset PIN, enable/disable. Cannot disable
+  yourself; cannot demote/disable the last active admin (service guard).
+- orders.user_id records who created each order; receipts print
+  "Served by: <name>" (resolveNames in print.service.ts).
+- ADMIN PIN RECOVERY (owner forgot PIN): stop app, open the DB at
+  %APPDATA%/restaurant-pos/restaurant-pos.db with any SQLite tool
+  (must use Electron-compatible tooling or a standalone sqlite3.exe;
+  system Node cannot load the Electron-built better-sqlite3 binding),
+  then: DELETE FROM users WHERE role='admin' AND name='<owner>';
+  -- if that leaves zero users, app shows Setup Admin again on next
+  launch. Alternatively UPDATE a known test user to role='admin'.
+
 ## 7. UI / KEYBOARD SYSTEM
 
 - Golden key 'O': anywhere in app (unless typing in an input) ->
@@ -185,6 +212,12 @@ String .Replace() replaces ALL occurrences — a seed item was once
 duplicated this way. After every scripted edit, VERIFY with Select-String
 before running. For risky edits, rewrite the whole file instead.
 
+### 9.3.5 PowerShell double-quote trap (JS template literals)
+In PowerShell double-quoted strings, backtick is the ESCAPE character and
+$ triggers interpolation — a JS line like metaLines.push(`Served by: ${x}`)
+gets silently mangled. ALWAYS use single-quoted PowerShell strings or
+here-strings (@'...'@) when the payload contains backticks or ${}.
+
 ### 9.4 Other gotchas learned
 - shadcn CLI cannot detect electron-vite -> components.json was created
   manually; npx shadcn@latest add <component> works fine after that.
@@ -220,9 +253,12 @@ DONE (Milestones 1-12):
 11. Dashboard: today snapshot, auto-refresh 30s, quick actions
 12. Backup/Restore (SQLite .backup API, safety copy before restore)
     + integrity check — all in Settings
+13. PIN login system: setup flow, lock screen, roles (admin/cashier),
+    users management in Settings, order attribution + served-by on
+    receipt, cashier locks (no discount, no cancel, no admin pages)
 
 REMAINING:
-- Milestone 13: production build & installer (electron-builder config,
+- Milestone 14: production build & installer (electron-builder config,
   app icon, name "Islamic Pizza POS", NSIS installer, test on clean PC)
 - Nice-to-haves discussed but not committed: PDF export of reports,
   fix-printer.ps1 helper script for client desktop, logo on receipt,

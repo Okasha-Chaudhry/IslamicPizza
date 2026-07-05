@@ -8,6 +8,7 @@ import * as settingsService from '../services/settings.service'
 import * as printService from '../printing/print.service'
 import * as reportsService from '../services/reports.service'
 import * as backupService from '../services/backup.service'
+import * as usersService from '../services/users.service'
 import type { OrderWithItems } from '../../shared/types'
 import { BrowserWindow } from 'electron'
 
@@ -41,6 +42,13 @@ export function registerIpcHandlers(): void {
   handle('tables:create', tablesService.create)
   handle('tables:update', tablesService.update)
   handle('tables:delete', tablesService.remove)
+
+  handle('auth:hasAnyUser', usersService.hasAnyUser)
+  handle('auth:setupAdmin', usersService.setupAdmin)
+  handle('auth:login', usersService.login)
+  handle('users:list', usersService.listUsers)
+  handle('users:create', usersService.createUser)
+  handle('users:update', usersService.updateUser)
 
   handle('settings:get', settingsService.getSettings)
   handle('settings:save', settingsService.saveSettings)

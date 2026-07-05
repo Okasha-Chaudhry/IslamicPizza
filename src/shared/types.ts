@@ -96,6 +96,7 @@ export interface OrderItemInput {
 }
 
 export interface CreateOrderInput {
+  userId?: number | null
   orderType: OrderType
   tableId?: number | null
   waiterId?: number | null
@@ -122,6 +123,7 @@ export interface OrderItem {
 
 export interface Order {
   id: number
+  userId: number | null
   orderNumber: string
   orderType: OrderType
   tableId: number | null
@@ -189,6 +191,16 @@ export interface SalesReport {
   summary: SalesSummary
   popular: PopularProduct[]
   daily: DailySales[]
+}
+
+export type UserRole = 'admin' | 'cashier'
+
+export interface SafeUser {
+  id: number
+  name: string
+  role: UserRole
+  isActive: boolean
+  createdAt: string
 }
 
 export interface ApiResult<T> {

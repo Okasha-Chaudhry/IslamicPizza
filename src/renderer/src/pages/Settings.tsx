@@ -10,6 +10,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import type { AppSettings, PrinterInfo } from '../../../shared/types'
+import UsersManager from '@/components/auth/UsersManager'
 
 export default function Settings(): React.JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -158,6 +159,8 @@ export default function Settings(): React.JSX.Element {
           printer cable is in its usual USB socket, then power the printer off and on.
         </p>
       </section>
+
+      <UsersManager />
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Backup &amp; Restore</h2>

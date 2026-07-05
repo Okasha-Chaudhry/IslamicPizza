@@ -68,6 +68,7 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
     const order = db
       .insert(orders)
       .values({
+        userId: input.userId ?? null,
         orderNumber: nextOrderNumber(),
         orderType: input.orderType,
         tableId: input.orderType === 'dine_in' ? (input.tableId ?? null) : null,

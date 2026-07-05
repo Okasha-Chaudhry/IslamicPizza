@@ -91,6 +91,19 @@ const MIGRATIONS: string[] = [
   ALTER TABLE orders ADD COLUMN customer_phone TEXT;
   ALTER TABLE orders ADD COLUMN customer_address TEXT;
   ALTER TABLE orders ADD COLUMN discount_percent INTEGER NOT NULL DEFAULT 0;
+  `,
+  // v3 - users with PIN auth + order attribution
+  `
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'cashier',
+    pin_hash TEXT NOT NULL,
+    pin_salt TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+  ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id);
   `
 ]
 

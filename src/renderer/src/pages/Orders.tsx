@@ -3,6 +3,7 @@ import { Printer, ChefHat, Ban, CircleCheck, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 import type { OrderWithItems, OrderStatus } from '../../../shared/types'
 
 const STATUS_TABS: { key: OrderStatus | 'all'; label: string }[] = [
@@ -37,6 +38,7 @@ export default function Orders(): React.JSX.Element {
   const [status, setStatus] = useState<OrderStatus | 'all'>('all')
   const [selected, setSelected] = useState<OrderWithItems | null>(null)
   const [msg, setMsg] = useState('')
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
 
   const refresh = useCallback(async (): Promise<void> => {
     const res = await window.api.orders.list({ date, status })
@@ -226,7 +228,7 @@ export default function Orders(): React.JSX.Element {
                   <CircleCheck className="size-4" /> Mark Paid
                 </Button>
               )}
-              {selected.status !== 'cancelled' && selected.status !== 'paid' && (
+              {isAdmin && selected.status !== 'cancelled' && selected.status !== 'paid' && (
                 <Button
                   variant="destructive"
                   className="h-11"
