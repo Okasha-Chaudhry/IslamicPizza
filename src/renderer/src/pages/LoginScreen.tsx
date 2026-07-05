@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import PinPad from '@/components/auth/PinPad'
+import logo from '@/assets/logo.png'
 import { useAuthStore } from '@/stores/auth-store'
 
 export default function LoginScreen(): React.JSX.Element {
@@ -74,6 +75,7 @@ export default function LoginScreen(): React.JSX.Element {
     <div className="flex h-screen items-center justify-center bg-background">
       <div className="w-80 space-y-6">
         <div className="text-center">
+          <img src={logo} alt="" className="mx-auto mb-3 size-24" />
           <h1 className="text-2xl font-bold">Restaurant POS</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === 'setup'

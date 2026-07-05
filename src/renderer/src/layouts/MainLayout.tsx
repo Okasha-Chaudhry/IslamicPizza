@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { useTheme } from '@/providers/theme-provider'
 import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
+import logo from '@/assets/logo.png'
 
 const navItems: { to: string; label: string; icon: typeof LayoutDashboard; highlight?: boolean; adminOnly?: boolean }[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -63,7 +64,8 @@ export default function MainLayout(): React.JSX.Element {
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <aside className="flex w-56 shrink-0 flex-col border-r bg-card">
-        <div className="flex h-14 items-center border-b px-4">
+        <div className="flex h-14 items-center gap-2 border-b px-4">
+          <img src={logo} alt="" className="size-9" />
           <span className="text-base font-bold tracking-tight">Restaurant POS</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-2">

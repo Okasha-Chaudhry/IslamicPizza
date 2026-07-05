@@ -7,6 +7,7 @@ import { registerIpcHandlers } from './ipc'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
+    title: 'Restaurant POS',
     width: 1280,
     height: 800,
     show: false,

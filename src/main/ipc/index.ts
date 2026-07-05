@@ -62,7 +62,7 @@ export function registerIpcHandlers(): void {
       const win = BrowserWindow.getAllWindows()[0]
       if (!win) return { ok: false, error: 'No window available' }
       const printers = await win.webContents.getPrintersAsync()
-      return { ok: true, data: printers.map((p) => ({ name: p.name, isDefault: p.isDefault })) }
+      return { ok: true, data: printers.map((p) => ({ name: p.name, isDefault: false })) }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Failed to list printers' }
     }

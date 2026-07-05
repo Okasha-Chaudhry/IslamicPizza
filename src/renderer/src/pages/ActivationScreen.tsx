@@ -3,6 +3,7 @@ import { Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import logo from '@/assets/logo.png'
 import type { LicenseStatus } from '../../../shared/types'
 
 interface Props {
@@ -36,6 +37,7 @@ export default function ActivationScreen({ status, onActivated }: Props): React.
     <div className="flex h-screen items-center justify-center bg-background">
       <div className="w-96 space-y-6">
         <div className="text-center">
+          <img src={logo} alt="" className="mx-auto mb-3 size-24" />
           <h1 className="text-2xl font-bold">Islamic Pizza POS</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             This software requires activation

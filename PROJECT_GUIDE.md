@@ -1,280 +1,255 @@
-# PROJECT GUIDE — Islamic Pizza POS (restaurant-pos)
+# PROJECT GUIDE - Islamic Pizza POS (islamic-pizza-pos)
 
-> Purpose of this file: complete context for any developer or AI assistant
-> resuming work on this project after months/years. Read this fully before
-> changing anything. Keep it updated when architecture changes.
-
----
+> Complete context for any developer or AI assistant resuming work on
+> this project after months/years. Read fully before changing anything.
+> Keep updated when architecture changes.
 
 ## 1. WHAT THIS IS
 
-Offline Windows desktop POS application for "Islamic Pizza & Fast Food",
-a small fast food restaurant in Shehar Sultan, Pakistan (Jatoi Road,
-Near Allah Wali Market; phones 0305-1415678 / 0306-1415678).
+Offline Windows desktop POS for "Islamic Pizza & Fast Food", a fast food
+restaurant in Shehar Sultan, Pakistan (Jatoi Road, Near Allah Wali Market,
+0305-1415678 / 0306-1415678). Fully offline, single PC, used daily for
+real business: orders, thermal receipts, kitchen slips, reports.
 
-- Fully offline, single PC, no server, no accounts/login
-- Used daily for real business: taking orders, printing receipts,
-  kitchen slips, and daily sales reports
-- Thermal printer: Black Copper BC-96AC (80mm, USB, uses XP-80C driver)
-- Developer: Okasha Chaudhry (github.com/Okasha-Chaudhry/IslamicPizza, private)
-- Development style: milestone by milestone, all file edits done via
-  PowerShell commands (Windows PowerShell 5.1), verified after every step
+- Thermal printer: Black Copper BC-96AC (80mm USB, uses XP-80C driver)
+- Developer: Okasha Chaudhry
+- App repo (private): github.com/Okasha-Chaudhry/IslamicPizza
+- Keygen repo (private, SEPARATE): github.com/Okasha-Chaudhry/pos-keygen
+- Dev style: milestone by milestone, all file edits via PowerShell 5.1,
+  verified with Select-String after every scripted edit
+- Product UI text: ENGLISH only. Dev conversation: Roman Urdu.
 
 ## 2. TECH STACK (do not replace without strong reason)
 
-- Electron (electron-vite scaffold) + React 19 + TypeScript (strict)
-- Vite, TailwindCSS v4 (CSS-first config, NO tailwind.config.js),
-  shadcn/ui (components copied into repo, CLI: npx shadcn@latest add X)
-- better-sqlite3 (synchronous SQLite driver) + Drizzle ORM
-- Zustand (cart state), React Hook Form + Zod (forms), react-router-dom
-  (HashRouter — REQUIRED for Electron file:// in production)
-- electron-builder for packaging (not yet configured for release)
+Electron (electron-vite) + React 19 + TypeScript strict. Vite.
+TailwindCSS v4 (CSS-first, NO tailwind.config.js). shadcn/ui (components
+copied into repo; add via: npx shadcn@latest add X). better-sqlite3
+(synchronous) + Drizzle ORM. Zustand (cart + auth stores). React Hook
+Form + Zod. react-router-dom with HashRouter (REQUIRED for production
+file:// loading). electron-builder (NSIS).
 
-## 3. ARCHITECTURE — THE GOLDEN RULES
+## 3. ARCHITECTURE - GOLDEN RULES
 
 1. Database and printing live ONLY in the Electron main process.
-   The React renderer NEVER touches SQLite or printers directly.
-2. Renderer talks to main via typed IPC:
-   renderer -> window.api.<domain>.<action>() -> preload (src/preload/index.ts)
-   -> ipcRenderer.invoke('<domain>:<action>') -> handler (src/main/ipc/index.ts)
-   -> service (src/main/services/*.service.ts) -> Drizzle/SQLite
-3. Every IPC response is ApiResult<T> = { ok, data?, error? }.
-   Services throw Errors; the handle() wrapper in src/main/ipc/index.ts
-   catches them so the app can never crash from a DB error.
-4. MONEY IS ALWAYS INTEGER RUPEES. Never floats. No decimals anywhere.
-5. Order items store SNAPSHOTS (productName, variantName, unitPrice at
-   time of sale) so menu edits never corrupt order history.
-6. Totals are computed in the main process (orders.service.ts), never
-   trusted from the renderer. Renderer only shows a preview.
-7. All user-facing UI text is ENGLISH. Conversation with Okasha happens
-   in Roman Urdu, but the product is English-only.
-8. Source files must be ASCII-only (no fancy dashes/quotes) — see 9.2.
+2. Renderer talks via typed IPC: window.api.<domain>.<action>() ->
+   preload (src/preload/index.ts) -> ipcMain handler (src/main/ipc/
+   index.ts) -> service (src/main/services/*.service.ts) -> SQLite.
+3. Every IPC response is ApiResult<T> = { ok, data?, error? }. Services
+   throw; the handle() wrapper catches. App must never crash on errors.
+4. MONEY IS ALWAYS INTEGER RUPEES. Never floats.
+5. order_items store SNAPSHOTS (productName, variantName, unitPrice at
+   sale time) so menu edits never corrupt history.
+6. Totals computed in main process (orders.service.ts); renderer preview
+   is never trusted.
+7. Source files ASCII-only (see 10.2).
 
 ## 4. FOLDER MAP
 
-src/
-  main/                  Electron main process
-    db/
-      index.ts           connection, WAL mode, MIGRATIONS array, initDatabase()
-      schema.ts          Drizzle table definitions (mirror of migrations)
-      seed.ts            seedIfEmpty() — full real menu, runs once on empty DB
-    ipc/index.ts         ALL ipcMain handlers + handle() safety wrapper
-    printing/
-      receipt-template.ts buildReceiptHtml(order, settings, mode) — receipt & kitchen
-      print.service.ts   hidden BrowserWindow silent printing; printReceipt/
-                         printKitchenSlip/printReport/printTest
-    services/            one file per domain; pure functions, throw on error
-      categories.service.ts, named-entity.service.ts (tables+waiters via
-      factory), products.service.ts, orders.service.ts, settings.service.ts,
-      reports.service.ts, backup.service.ts
-  preload/index.ts       window.api definition; export type Api = typeof api
-  preload/index.d.ts     global Window typing
-  shared/types.ts        ALL shared TS interfaces (single source of truth)
-  renderer/src/
-    App.tsx              HashRouter + routes
-    layouts/MainLayout.tsx  sidebar + global 'O' golden key
-    pages/               Dashboard, NewOrder, Orders, Products(=Menu UI),
-                         Categories, Tables, Waiters, Reports, Settings
-    components/
-      ui/                shadcn components (button, dialog, input, label,
-                         select, switch)
-      shared/EntityManagerPage.tsx  reusable CRUD page (Tables/Waiters/Categories)
-      products/ProductFormDialog.tsx  RHF+Zod form with variants editor
-      orders/VariantPickerDialog.tsx  keyboard-driven variant popup
-    stores/cart-store.ts Zustand cart (lines keyed by productId:variantId)
-    providers/theme-provider.tsx  dark/light, persisted in localStorage
+src/main/
+  db/index.ts        connection, WAL, MIGRATIONS array, initDatabase()
+  db/schema.ts       Drizzle tables (mirror of migrations)
+  db/seed.ts         seedIfEmpty() - real menu, runs once on empty DB
+  ipc/index.ts       ALL ipcMain handlers + handle() wrapper
+  printing/receipt-template.ts   buildReceiptHtml (receipt + kitchen modes)
+  printing/print.service.ts      hidden BrowserWindow silent printing;
+                                 printReceipt/KitchenSlip/Report/Test
+  services/          categories, named-entity (tables+waiters factory),
+                     products, orders, settings, reports, backup, users,
+                     license - one file per domain, throw on error
+src/preload/index.ts   window.api definition; export type Api = typeof api
+src/shared/types.ts    ALL shared interfaces (single source of truth)
+src/renderer/src/
+  App.tsx            license gate -> auth gate -> HashRouter + AdminOnly
+  layouts/MainLayout.tsx   sidebar (role-filtered), golden O key, Lock
+  pages/             Dashboard, NewOrder, Orders, Products(=Menu UI),
+                     Categories, Tables, Waiters, Reports, Settings,
+                     LoginScreen, ActivationScreen
+  components/ui/     shadcn: button dialog input label select switch
+  components/shared/EntityManagerPage.tsx   reusable CRUD page
+  components/products/ProductFormDialog.tsx RHF+Zod + variants editor
+  components/orders/VariantPickerDialog.tsx keyboard variant popup
+  components/auth/   PinPad.tsx, UsersManager.tsx
+  stores/            cart-store.ts (lines keyed productId:variantId),
+                     auth-store.ts (session, memory only)
+  providers/theme-provider.tsx   dark/light, localStorage
+convert-logo.js      logo pipeline: resources/logo-source.webp ->
+                     trim -> circle mask -> logo.png + icon PNGs + .ico
 
 ## 5. DATABASE
 
-Location: C:\Users\<user>\AppData\Roaming\restaurant-pos\restaurant-pos.db
-Mode: WAL, foreign_keys ON.
+Location: %APPDATA%/islamic-pizza-pos/restaurant-pos.db (package.json
+name = islamic-pizza-pos determines the folder; dev and prod SHARE it).
+WAL mode, foreign_keys ON.
 
-MIGRATIONS: versioned SQL strings in MIGRATIONS array (src/main/db/index.ts),
-tracked via PRAGMA user_version. To change schema: append a new SQL string
-to the array (never edit old ones) AND update schema.ts to match.
-- v1: full initial schema (categories, products, variants, restaurant_tables,
-  waiters, orders, order_items, settings + indexes)
+Migrations: versioned SQL strings in MIGRATIONS array (db/index.ts),
+tracked by PRAGMA user_version. To change schema: APPEND new SQL string
+(never edit old ones) AND mirror in schema.ts.
+- v1: categories, products, variants, restaurant_tables, waiters,
+  orders, order_items, settings + indexes
 - v2: orders + customer_phone, customer_address, discount_percent
+- v3: users table (PIN auth) + orders.user_id
 
-Key columns worth remembering:
-- products.times_sold, products.last_sold_at — bumped on every order,
-  used for search ranking on New Order screen
-- orders.order_number — format YYYYMMDD-NNN, resets daily (nextOrderNumber())
+Key facts:
+- products.times_sold / last_sold_at: bumped per order, drive search rank
+- orders.order_number: YYYYMMDD-NNN, resets daily
 - orders.status: pending | kitchen_printed | paid | cancelled
-  (orders are never deleted; cancel is a status)
+  (never deleted - cancel is a status)
 - orders.order_type: dine_in | take_away | delivery
-- settings: key-value TEXT table; defaults in settings.service.ts
+- settings: key-value TEXT (defaults in settings.service.ts); also
+  stores licenseKey
+- seed: real menu (11 categories incl Extras, ~57 items) only when
+  products empty. Extra Large Pizza = own item, variants 2300/2500/2700.
 
-Seeding: seed.ts inserts the real menu (11 categories, ~57 items with
-variants) ONLY when products table is empty. Real prices from the printed
-menu card. Delete the .db* files to re-seed in dev.
+## 6. BUSINESS RULES
 
-## 6. BUSINESS RULES (client requirements)
+- Dine In requires table (waiter optional); Delivery prints phone+address
+- Discount: PERCENTAGE only (0-100). NO TAX anywhere.
+- Buttons: Paid + Print / Paid Only / Kitchen Slip / Print Receipt
+- Kitchen slip: big font, qty + names + notes, NO PRICES
+- Product delete blocked if used in orders (disable instead); category
+  delete blocked if it has products
+- Cashier CANNOT: see Reports/Settings/Menu/Categories/Tables/Waiters,
+  give discount, cancel orders. Admin can do everything.
 
-- Order types: Dine In (requires table; waiter optional), Take Away,
-  Delivery (customer phone + address printed on receipt)
-- Discount: PERCENTAGE only (0-100), stored with computed amount
-- NO TAX anywhere, not on receipts (prices are final)
-- Payment buttons: Paid + Print / Paid Only / Kitchen Slip / Print Receipt
-- Kitchen slip: big font, quantities + item names + notes, NO PRICES
-- Product deletion blocked if used in orders (disable instead);
-  category deletion blocked if it has products
-- Extra Large Pizza is its own menu item with variants 2300/2500/2700
-  (price depends on flavor tier; flavor written in item note)
+## 7. AUTH SYSTEM (Milestone 13)
 
-## 6.5 AUTH / LOGIN SYSTEM (Milestone 13)
+- PIN login (4-6 digits), roles: admin | cashier
+- pin stored as SHA-256(salt:pin) + per-user salt; hashes never leave
+  main process (SafeUser type)
+- First run (no users): Setup Admin screen. After: PIN pad lock screen;
+  PIN alone identifies user (so PINs must be unique in practice).
+- Session in auth-store (memory). Lock button = logout. Restart = locked.
+- Role enforcement in 3 sync'd places: MainLayout navItems adminOnly,
+  App.tsx AdminOnly wrapper, feature locks (discount, cancel).
+- Users management: Settings -> Users (add, edit, PIN reset, disable).
+  Cannot disable self; cannot remove last active admin (service guard).
+- orders.user_id -> receipt prints "Served by: <name>".
+- ADMIN PIN RECOVERY: stop app, open %APPDATA%/islamic-pizza-pos/
+  restaurant-pos.db with a standalone SQLite tool (system Node canNOT
+  load the Electron-built better-sqlite3), DELETE the admin row from
+  users; if zero users remain the app shows Setup Admin on next launch.
 
-- PIN-based (4-6 digits), two roles: admin | cashier
-- users table (v3 migration): pin stored as SHA-256(salt:pin) + per-user
-  salt (Node crypto). PIN hashes NEVER sent to renderer (SafeUser type).
-- First run (no users): Setup Admin screen -> creates owner account.
-  After that: PIN pad lock screen; PIN alone identifies the user.
-- Session lives in Zustand auth-store (memory only). Lock button in
-  sidebar logs out. App restart = locked.
-- Role enforcement in THREE places (all must stay in sync):
-  1. MainLayout navItems adminOnly flags (sidebar visibility)
-  2. App.tsx AdminOnly route wrapper (URL-level guard)
-  3. Feature locks: discount field (NewOrder) + cancel button (Orders)
-     are admin-only
-- Users management: Settings -> Users section (UsersManager.tsx).
-  Add user, edit name/role, reset PIN, enable/disable. Cannot disable
-  yourself; cannot demote/disable the last active admin (service guard).
-- orders.user_id records who created each order; receipts print
-  "Served by: <name>" (resolveNames in print.service.ts).
-- ADMIN PIN RECOVERY (owner forgot PIN): stop app, open the DB at
-  %APPDATA%/restaurant-pos/restaurant-pos.db with any SQLite tool
-  (must use Electron-compatible tooling or a standalone sqlite3.exe;
-  system Node cannot load the Electron-built better-sqlite3 binding),
-  then: DELETE FROM users WHERE role='admin' AND name='<owner>';
-  -- if that leaves zero users, app shows Setup Admin again on next
-  launch. Alternatively UPDATE a known test user to role='admin'.
+## 8. LICENSING (Milestone 14) - IMPORTANT
 
-## 7. UI / KEYBOARD SYSTEM
+- Device-locked keys: HMAC-SHA256(LICENSE_SECRET, machineId:expiry),
+  first 20 hex chars formatted XXXXX-XXXXX-XXXXX-XXXXX-YYYYMMDD.
+  Lifetime = expiry 99991231. Expiry is inside the signed payload.
+- machineId = Windows registry MachineGuid (license.service.ts).
+- App gate: App.tsx checks license:status before anything; not activated
+  -> ActivationScreen (shows Machine ID + key input).
+- Key saved in settings table; re-verified every launch (device + expiry).
+- KEYGEN lives in SEPARATE private repo pos-keygen (keygen.js +
+  KeyGenerator.bat + KeyGenerator.hta GUI + client log in README).
+  NEVER commit keygen or discuss secret in THIS repo. Secret also backed
+  up in owner phone. Secret must match license.service.ts LICENSE_SECRET.
+- Business model: this client lifetime; future clients yearly (365).
+- Same installer for ALL clients; only the key differs per machine.
 
-- Golden key 'O': anywhere in app (unless typing in an input) ->
-  navigates to New Order + focuses search. Implemented in MainLayout;
-  NewOrder listens for CustomEvent 'pos:focus-search'.
-- New Order: Ctrl+K / Ctrl+F / F3 focus search; Enter adds top result;
-  ArrowDown from search enters product grid; arrows move (auto-scroll
-  via scrollIntoView); Escape returns to search.
-- VariantPickerDialog: manages its own highlight index; ArrowKeys move,
-  Enter picks, number keys 1-9 pick directly, Esc cancels. Uses a
-  capture-phase window keydown listener (Radix does NOT provide arrow nav).
-- Touch targets: minimum h-10/h-11 buttons, h-12 payment buttons.
-- Theme: dark/light toggle bottom of sidebar, localStorage 'pos-theme'.
+## 9. PRINTING
 
-## 8. PRINTING SYSTEM
-
-Flow: buildReceiptHtml() -> data: URL -> hidden BrowserWindow ->
-webContents.print({ silent: true, deviceName }) -> destroy window.
-
-- Printer names are NEVER hardcoded. Settings page lists Windows printers
-  via webContents.getPrintersAsync(); user picks receipt + kitchen printer
-  (kitchen falls back to receipt printer if unset).
-- Receipt width setting: 58 / 80 / A4. CSS body width for 80mm is 64mm
-  (BC-96AC printable area — found by physical testing; 72mm and 68mm
-  were cut off on the right).
-- Header hierarchy on receipt: restaurantName (big bold) -> receiptHeader
-  (bold subhead, e.g. "Shehar Sultan") -> address/phone (small).
+buildReceiptHtml() -> data: URL -> hidden BrowserWindow ->
+webContents.print({silent:true, deviceName}) -> destroy.
+- Printer names NEVER hardcoded; Settings lists Windows printers via
+  getPrintersAsync(); receipt + kitchen printer saved in settings
+  (kitchen falls back to receipt printer).
+- Width setting 58/80/A4; body width for 80mm is 64mm (BC-96AC physical
+  printable area - 72 and 68 were cut off; found by test prints).
+- Receipt header hierarchy: restaurantName (big bold) -> receiptHeader
+  (bold subhead) -> address/phone (small). No logo on receipts (chosen).
 - Test Print button in Settings for client self-diagnosis.
 
-### 8.1 KNOWN HARDWARE ISSUE — USB port shuffle (IMPORTANT)
-BC-96AC (and USB thermal printers generally) can silently switch between
-USB001/USB002 when unplugged/replugged. Jobs then sit "Normal" in queue,
-nothing prints. Fix (admin PowerShell):
+### 9.1 KNOWN HARDWARE ISSUE - USB port shuffle
+BC-96AC silently switches USB001/USB002 on replug; jobs sit "Normal" in
+queue, nothing prints. Fix (admin PowerShell):
   Stop-Service Spooler -Force
   Remove-Item "$env:SystemRoot\System32\spool\PRINTERS\*" -Force
   Start-Service Spooler
-  Set-Printer -Name "BC-96AC" -PortName "USB001"   # or USB002 — try both
+  Set-Printer -Name "BC-96AC" -PortName "USB001"   # try USB002 if not
   "TEST" | Out-Printer -Name "BC-96AC"
-Client instruction: keep printer in the same physical USB socket, always.
-Permanent alternative if it recurs: use the printer's Ethernet port (fixed IP).
+Client rule: printer cable stays in the SAME physical USB socket.
+Permanent fallback: printer Ethernet port with fixed IP.
 
-## 9. DEVELOPMENT WORKFLOW & GOTCHAS
+## 10. DEV WORKFLOW & GOTCHAS (hard-earned)
 
-Commands: npm run dev (dev with HMR). Work happens via PowerShell file
-writes, then verify with Select-String, then run.
+Run: npm run dev. Build: npm run build:win ->
+dist/islamic-pizza-pos-X.X.X-setup.exe. Version bump before release
+builds: npm version patch --no-git-tag-version.
 
-### 9.1 File writing from PowerShell — ALWAYS this pattern:
-  $content = @' ... '@
-  [System.IO.File]::WriteAllText("C:\full\path\file.ts", $content)
-NEVER Set-Content for code files: PowerShell 5.1 writes a UTF-8 BOM which
-BREAKS shadcn CLI JSON parsing (components.json) and can corrupt files.
-When reading for edits: Get-Content -Raw -Encoding UTF8.
+### 10.1 PowerShell file writing - ALWAYS:
+  $content = @' ... '@   (single-quote here-string)
+  [System.IO.File]::WriteAllText("C:\full\path", $content)
+NEVER Set-Content for code files (PS 5.1 writes UTF-8 BOM -> broke
+shadcn CLI JSON parsing). Read with: Get-Content -Raw -Encoding UTF8.
 
-### 9.2 Encoding rule
-Source files ASCII-only. Fancy characters (en-dash, curly quotes) got
-mojibake'd (A-cir-euro-oe garbage) through a PowerShell read/write cycle
-once. Use "-", not fancy dashes, in UI strings.
+### 10.2 Encoding: source files ASCII-only. Fancy dashes/quotes got
+mojibake'd through a PS read/write cycle once. Use "-".
 
-### 9.3 .Replace() edits
-String .Replace() replaces ALL occurrences — a seed item was once
-duplicated this way. After every scripted edit, VERIFY with Select-String
-before running. For risky edits, rewrite the whole file instead.
+### 10.3 PowerShell double-quote trap: in double-quoted PS strings,
+backtick is the escape char and $ interpolates - a JS template literal
+like `Served by: ${x}` gets silently mangled. Single-quoted strings or
+here-strings only when payload has backticks or ${}.
 
-### 9.3.5 PowerShell double-quote trap (JS template literals)
-In PowerShell double-quoted strings, backtick is the ESCAPE character and
-$ triggers interpolation — a JS line like metaLines.push(`Served by: ${x}`)
-gets silently mangled. ALWAYS use single-quoted PowerShell strings or
-here-strings (@'...'@) when the payload contains backticks or ${}.
+### 10.4 .Replace() replaces ALL occurrences (a seed item got duplicated
+once). After every scripted edit VERIFY with Select-String before
+running. For risky edits rewrite the whole file.
 
-### 9.4 Other gotchas learned
-- shadcn CLI cannot detect electron-vite -> components.json was created
-  manually; npx shadcn@latest add <component> works fine after that.
-- Drizzle + better-sqlite3 is synchronous: always end queries with
-  .get() / .all() / .run(); .returning() needs .get() after it.
-- Multi-step DB writes use getSqlite().transaction(() => ...)().
-- npm postinstall runs electron-builder install-app-deps which rebuilds
-  better-sqlite3 for Electron's Node. If native errors appear after
-  npm installs, run: npx electron-builder install-app-deps
-- Node on dev machine is v25 (non-LTS); prebuilt binaries worked, but if
-  a native build ever fails, switch to Node 22 LTS via nvm-windows.
-- AUTOINCREMENT ids never reuse after delete — gaps are normal and wanted.
+### 10.5 Other:
+- shadcn CLI cannot detect electron-vite; components.json was created
+  manually (BOM-free); after that "npx shadcn@latest add X" works.
+- Drizzle + better-sqlite3 is sync: end queries with .get()/.all()/
+  .run(); .returning() needs .get().
+- Multi-step writes: getSqlite().transaction(() => ...)().
+- npm postinstall rebuilds better-sqlite3 for Electron. Native errors
+  after installs: npx electron-builder install-app-deps
+- System Node (v25 here) CANNOT load the Electron-built better-sqlite3
+  binding (NODE_MODULE_VERSION mismatch) - verify DB via the running
+  app (F12 console: await window.api...) not via node -e.
+- electron-builder.yml: asarUnpack '**/*.node' is REQUIRED or SQLite
+  fails in production. TS typecheck runs on build (not dev) - expect
+  strict errors to surface at build time.
+- AUTOINCREMENT ids never reuse; gaps are normal and wanted.
+- Radix dialogs do NOT provide arrow-key nav; VariantPickerDialog uses
+  its own capture-phase window keydown listener.
 
-## 10. STATUS — WHAT IS DONE / WHAT REMAINS
+## 11. STATUS - v1.0.0 SHIPPED
 
-DONE (Milestones 1-12):
- 1. electron-vite scaffold (React+TS), updater removed
- 2. Tailwind v4 + shadcn/ui + zinc theme, dark/light
- 3. DB foundation: schema, migrations, WAL, IPC bridge pattern
- 4. App shell: sidebar, HashRouter, theme toggle
- 5. Tables + Waiters CRUD (shared EntityManagerPage)
- 6. Menu (products) + variants CRUD, category filter, RHF+Zod dialog
-    + real menu seeded from the printed menu card
- 7. New Order screen: instant ranked search, category tabs, variant
-    popup, cart (qty/notes/discount), 4 payment buttons, full keyboard
-    system + golden 'O' key
- 8. Printing: receipt + kitchen slip on BC-96AC, settings page with
-    printer selection, width, restaurant info, test print
- 9. Orders page: date + status filters, detail panel, reprint
-    (receipt/kitchen), mark paid, cancel
-10. Reports: date range, summary, popular products, daily breakdown,
-    printable report
-11. Dashboard: today snapshot, auto-refresh 30s, quick actions
-12. Backup/Restore (SQLite .backup API, safety copy before restore)
-    + integrity check — all in Settings
-13. PIN login system: setup flow, lock screen, roles (admin/cashier),
-    users management in Settings, order attribution + served-by on
-    receipt, cashier locks (no discount, no cancel, no admin pages)
+Milestones 1-15 all DONE:
+1 scaffold (updater removed) / 2 Tailwind v4 + shadcn + themes /
+3 DB foundation + IPC pattern / 4 shell + sidebar + HashRouter /
+5 Tables + Waiters CRUD / 6 Menu + variants + real seeded menu /
+7 New Order screen (ranked instant search, variant popup, cart,
+4 payment buttons, full keyboard + golden O key) / 8 printing
+(receipt + kitchen, printer settings, test print) / 9 Orders page
+(filters, detail, reprint, mark paid, cancel) / 10 Reports (range,
+summary, popular, daily, printable) / 11 Dashboard (30s refresh) /
+12 Backup/Restore (.backup API + safety copy) + integrity check /
+13 PIN auth + users + roles + served-by / 14 licensing /
+15 production NSIS installer (pizza logo icon set via convert-logo.js,
+window title "Restaurant POS", productName "Islamic Pizza POS")
 
-REMAINING:
-- Milestone 14: production build & installer (electron-builder config,
-  app icon, name "Islamic Pizza POS", NSIS installer, test on clean PC)
-- Nice-to-haves discussed but not committed: PDF export of reports,
-  fix-printer.ps1 helper script for client desktop, logo on receipt,
-  multi-language UI
+NICE-TO-HAVES (not committed): PDF report export, fix-printer.ps1 for
+client desktop, logo on receipt, multi-language UI, white-label build
+for future clients (rename app per client - 10 min job).
 
-## 11. HOW TO ADD A NEW FEATURE (the recipe)
+## 12. DELIVERY CHECKLIST (per client)
 
-Example: adding domain "riders":
-1. Migration: append SQL to MIGRATIONS in src/main/db/index.ts
-2. Mirror table in src/main/db/schema.ts
-3. Types in src/shared/types.ts
-4. Service src/main/services/riders.service.ts (throw Errors)
-5. Register channels in src/main/ipc/index.ts via handle()
-6. Expose in src/preload/index.ts under api.riders
-7. UI page/components in renderer; navigation item in MainLayout
-8. Test each layer, commit with a descriptive message, push
+1. Installer (from Google Drive or dist/) to client PC, install
+2. App opens -> Activation screen -> client sends Machine ID (WhatsApp)
+3. Generate key: KeyGenerator.hta (GUI) or .bat in pos-keygen; log the
+   client in pos-keygen README table, commit
+4. Activate -> Setup Admin (owner sets own PIN)
+5. Settings: restaurant info, select printer, Test Print
+6. Create cashier users (Settings -> Users)
+7. Train: golden O key, 4 payment buttons, Lock, daily report print,
+   Create Backup to USB weekly
+8. Printer rule: same USB socket always; if no print: Test Print ->
+   power cycle printer -> call developer (see 9.1)
 
-Follow existing files as templates — named-entity.service.ts +
-EntityManagerPage.tsx is the fastest path for simple CRUD domains.
+## 13. HOW TO ADD A NEW FEATURE (recipe)
+
+Example domain "riders": 1) append migration SQL in db/index.ts
+2) mirror in schema.ts 3) types in shared/types.ts 4) service file
+(throw on error) 5) register in ipc/index.ts via handle() 6) expose in
+preload under api.riders 7) UI page + nav item (adminOnly if needed)
+8) test each layer, commit, push. Fastest CRUD path: copy
+named-entity.service.ts + EntityManagerPage.tsx pattern.
