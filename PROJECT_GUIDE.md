@@ -245,6 +245,19 @@ for future clients (rename app per client - 10 min job).
 8. Printer rule: same USB socket always; if no print: Test Print ->
    power cycle printer -> call developer (see 9.1)
 
+## 12.5 BRANCHES & HOW TO RESUME WORK (with AI or alone)
+- main = generic Restaurant POS product (v1.1.0+, seed OFF, all clients)
+- islamic-pizza branch = that client's build (seed ON, their branding)
+- FIRST STEP of any session: git branch (check where you are), then
+  git checkout <main | islamic-pizza> for the world you're changing.
+- Fix needed in BOTH: do it on main, commit, then
+  git checkout islamic-pizza; git cherry-pick <commit-id>; push.
+- Old releases rebuildable anytime: git checkout v1.0.0 / v1.1.0
+- Resuming with an AI assistant: tell it (1) read PROJECT_GUIDE.md
+  first, (2) which branch the change targets, (3) the change itself.
+  All file edits in this project are done via PowerShell 5.1 patterns
+  described in section 10.
+
 ## 13. HOW TO ADD A NEW FEATURE (recipe)
 
 Example domain "riders": 1) append migration SQL in db/index.ts

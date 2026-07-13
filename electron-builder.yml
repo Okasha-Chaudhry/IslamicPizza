@@ -1,5 +1,5 @@
-appId: com.okasha.islamicpizzapos
-productName: Islamic Pizza POS
+appId: com.okasha.restaurantpospro
+productName: Restaurant POS
 directories:
   buildResources: build
 files:
@@ -16,7 +16,7 @@ asarUnpack:
   - resources/**
   - '**/*.node'
 win:
-  executableName: IslamicPizzaPOS
+  executableName: RestaurantPOS
   icon: build/icon.ico
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
