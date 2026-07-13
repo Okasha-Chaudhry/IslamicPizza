@@ -1,4 +1,4 @@
-appId: com.okasha.restaurantpospro
+appId: com.okasha.restaurantpos
 productName: Restaurant POS
 directories:
   buildResources: build
@@ -19,7 +19,7 @@ win:
   executableName: RestaurantPOS
   icon: build/icon.ico
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: restaurant-pos-1.0-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
