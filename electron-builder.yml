@@ -19,7 +19,7 @@ win:
   executableName: RestaurantPOS
   icon: build/icon.ico
 nsis:
-  artifactName: restaurant-pos-1.0-setup.${ext}
+  artifactName: restaurant-pos-1.1-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
