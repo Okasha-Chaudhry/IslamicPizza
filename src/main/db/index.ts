@@ -104,6 +104,38 @@ const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
   ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id);
+  `,
+  // v4 - expense items + expenses + customers
+  `
+  CREATE TABLE IF NOT EXISTS expense_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+  CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expense_date TEXT NOT NULL,
+    category TEXT NOT NULL,
+    expense_item_id INTEGER REFERENCES expense_items(id),
+    quantity TEXT,
+    description TEXT,
+    amount INTEGER NOT NULL,
+    user_id INTEGER REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
+  CREATE INDEX IF NOT EXISTS idx_expenses_item ON expenses(expense_item_id);
+  CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    phone TEXT NOT NULL UNIQUE,
+    address TEXT,
+    times_ordered INTEGER NOT NULL DEFAULT 0,
+    last_order_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
   `
 ]
 

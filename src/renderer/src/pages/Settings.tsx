@@ -38,6 +38,7 @@ export default function Settings(): React.JSX.Element {
     setMsg('')
     const res = await window.api.settings.save(settings)
     setMsg(res.ok ? 'Settings saved' : (res.error ?? 'Save failed'))
+    if (res.ok) window.dispatchEvent(new CustomEvent('pos:settings-changed'))
     setSaving(false)
   }
 

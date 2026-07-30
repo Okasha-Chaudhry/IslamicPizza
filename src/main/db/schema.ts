@@ -97,6 +97,37 @@ export const users = sqliteTable('users', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
 })
 
+export const expenseItems = sqliteTable('expense_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
+})
+
+export const expenses = sqliteTable('expenses', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  expenseDate: text('expense_date').notNull(),
+  category: text('category', {
+    enum: ['ingredients', 'utilities', 'salaries', 'rent', 'equipment', 'other']
+  }).notNull(),
+  expenseItemId: integer('expense_item_id').references(() => expenseItems.id),
+  quantity: text('quantity'),
+  description: text('description'),
+  amount: integer('amount').notNull(),
+  userId: integer('user_id').references(() => users.id),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
+})
+
+export const customers = sqliteTable('customers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name'),
+  phone: text('phone').notNull().unique(),
+  address: text('address'),
+  timesOrdered: integer('times_ordered').notNull().default(0),
+  lastOrderAt: text('last_order_at'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
+})
+
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()

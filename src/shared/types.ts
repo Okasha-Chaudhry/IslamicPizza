@@ -97,6 +97,7 @@ export interface OrderItemInput {
 
 export interface CreateOrderInput {
   userId?: number | null
+  customerName?: string
   orderType: OrderType
   tableId?: number | null
   waiterId?: number | null
@@ -200,6 +201,64 @@ export interface SafeUser {
   name: string
   role: UserRole
   isActive: boolean
+  createdAt: string
+}
+
+export type ExpenseCategory =
+  | 'ingredients'
+  | 'utilities'
+  | 'salaries'
+  | 'rent'
+  | 'equipment'
+  | 'other'
+
+export interface ExpenseItem {
+  id: number
+  name: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface Expense {
+  id: number
+  expenseDate: string
+  category: ExpenseCategory
+  expenseItemId: number | null
+  itemName?: string | null
+  quantity: string | null
+  description: string | null
+  amount: number
+  userId: number | null
+  createdAt: string
+}
+
+export interface CreateExpenseInput {
+  expenseDate: string
+  category: ExpenseCategory
+  expenseItemId?: number | null
+  quantity?: string
+  description?: string
+  amount: number
+  userId?: number | null
+}
+
+export interface UpdateExpenseInput {
+  id: number
+  expenseDate?: string
+  category?: ExpenseCategory
+  expenseItemId?: number | null
+  quantity?: string
+  description?: string
+  amount?: number
+}
+
+export interface Customer {
+  id: number
+  name: string | null
+  phone: string
+  address: string | null
+  timesOrdered: number
+  lastOrderAt: string | null
   createdAt: string
 }
 

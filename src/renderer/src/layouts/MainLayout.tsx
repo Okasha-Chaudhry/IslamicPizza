@@ -51,10 +51,14 @@ export default function MainLayout(): React.JSX.Element {
   const [restaurantName, setRestaurantName] = useState('Restaurant POS')
 
   useEffect(() => {
-    void (async () => {
+    async function loadName(): Promise<void> {
       const res = await window.api.settings.get()
       if (res.ok && res.data?.restaurantName) setRestaurantName(res.data.restaurantName)
-    })()
+    }
+    void loadName()
+    const handler = (): void => void loadName()
+    window.addEventListener('pos:settings-changed', handler)
+    return () => window.removeEventListener('pos:settings-changed', handler)
   }, [])
 
   useEffect(() => {
