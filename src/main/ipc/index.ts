@@ -10,6 +10,8 @@ import * as reportsService from '../services/reports.service'
 import * as backupService from '../services/backup.service'
 import * as usersService from '../services/users.service'
 import * as licenseService from '../services/license.service'
+import * as expensesService from '../services/expenses.service'
+import * as customersService from '../services/customers.service'
 import type { OrderWithItems } from '../../shared/types'
 import { BrowserWindow } from 'electron'
 
@@ -69,6 +71,17 @@ export function registerIpcHandlers(): void {
   })
 
   handle('reports:sales', reportsService.getSalesReport)
+
+  handle('expenses:listItems', expensesService.listExpenseItems)
+  handle('expenses:createItem', expensesService.createExpenseItem)
+  handle('expenses:updateItem', expensesService.updateExpenseItem)
+  handle('expenses:list', expensesService.listExpenses)
+  handle('expenses:create', expensesService.createExpense)
+  handle('expenses:update', expensesService.updateExpense)
+  handle('expenses:delete', expensesService.deleteExpense)
+  handle('expenses:summary', expensesService.expenseSummary)
+
+  handle('customers:search', customersService.searchCustomers)
 
   ipcMain.handle('backup:create', async () => {
     try {

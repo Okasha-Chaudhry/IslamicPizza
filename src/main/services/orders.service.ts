@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { getDb, getSqlite } from '../db'
 import { orders, orderItems, products, variants } from '../db/schema'
+import { upsertCustomerOnOrder } from './customers.service'
 import type {
   CreateOrderInput,
   OrderWithItems,
@@ -97,6 +98,14 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
     )
     for (const item of resolvedItems) {
       bump.run(item.quantity, now, item.productId)
+    }
+
+    if (input.orderType === 'delivery' && input.customerPhone?.trim()) {
+      upsertCustomerOnOrder({
+        phone: input.customerPhone,
+        name: input.customerName,
+        address: input.customerAddress
+      })
     }
 
     return { ...order, items: savedItems }

@@ -20,7 +20,12 @@ import type {
   SalesReport,
   SafeUser,
   UserRole,
-  LicenseStatus
+  LicenseStatus,
+  Expense,
+  ExpenseItem,
+  CreateExpenseInput,
+  UpdateExpenseInput,
+  Customer
 } from '../shared/types'
 
 function namedEntityApi(prefix: string): {
@@ -53,6 +58,26 @@ const api = {
     update: (input: UpdateProductInput): Promise<ApiResult<Product>> =>
       ipcRenderer.invoke('products:update', input),
     delete: (id: number): Promise<ApiResult<void>> => ipcRenderer.invoke('products:delete', id)
+  },
+  expenses: {
+    listItems: (): Promise<ApiResult<ExpenseItem[]>> => ipcRenderer.invoke('expenses:listItems'),
+    createItem: (name: string): Promise<ApiResult<ExpenseItem>> =>
+      ipcRenderer.invoke('expenses:createItem', name),
+    updateItem: (input: { id: number; name?: string; isActive?: boolean }): Promise<ApiResult<ExpenseItem>> =>
+      ipcRenderer.invoke('expenses:updateItem', input),
+    list: (filter: { from: string; to: string }): Promise<ApiResult<Expense[]>> =>
+      ipcRenderer.invoke('expenses:list', filter),
+    create: (input: CreateExpenseInput): Promise<ApiResult<Expense>> =>
+      ipcRenderer.invoke('expenses:create', input),
+    update: (input: UpdateExpenseInput): Promise<ApiResult<Expense>> =>
+      ipcRenderer.invoke('expenses:update', input),
+    delete: (id: number): Promise<ApiResult<void>> => ipcRenderer.invoke('expenses:delete', id),
+    summary: (filter: { from: string; to: string }): Promise<ApiResult<{ total: number; byCategory: { category: string; total: number }[]; byItem: { itemName: string; purchases: number; total: number; lastDate: string }[] }>> =>
+      ipcRenderer.invoke('expenses:summary', filter)
+  },
+  customers: {
+    search: (query: string): Promise<ApiResult<Customer[]>> =>
+      ipcRenderer.invoke('customers:search', query)
   },
   license: {
     status: (): Promise<ApiResult<LicenseStatus>> => ipcRenderer.invoke('license:status'),
