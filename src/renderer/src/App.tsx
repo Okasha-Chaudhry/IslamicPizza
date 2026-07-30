@@ -14,6 +14,7 @@ import Categories from '@/pages/Categories'
 import Tables from '@/pages/Tables'
 import Waiters from '@/pages/Waiters'
 import Reports from '@/pages/Reports'
+import Expenses from '@/pages/Expenses'
 import Settings from '@/pages/Settings'
 
 function AdminOnly({ children }: { children: React.JSX.Element }): React.JSX.Element {
@@ -72,6 +73,7 @@ function App(): React.JSX.Element {
               <Route path="/tables" element={<AdminOnly><Tables /></AdminOnly>} />
               <Route path="/waiters" element={<AdminOnly><Waiters /></AdminOnly>} />
               <Route path="/reports" element={<AdminOnly><Reports /></AdminOnly>} />
+              <Route path="/expenses" element={<AdminOnly><Expenses /></AdminOnly>} />
               <Route path="/settings" element={<AdminOnly><Settings /></AdminOnly>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

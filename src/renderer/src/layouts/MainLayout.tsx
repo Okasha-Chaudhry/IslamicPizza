@@ -9,6 +9,7 @@ import {
   Table2,
   Users,
   BarChart3,
+  Wallet,
   Settings as SettingsIcon,
   Moon,
   Sun,
@@ -29,6 +30,7 @@ const navItems: { to: string; label: string; icon: typeof LayoutDashboard; highl
   { to: '/tables', label: 'Tables', icon: Table2, adminOnly: true },
   { to: '/waiters', label: 'Waiters', icon: Users, adminOnly: true },
   { to: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },
+  { to: '/expenses', label: 'Expenses', icon: Wallet, adminOnly: true },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, adminOnly: true }
 ]
 
