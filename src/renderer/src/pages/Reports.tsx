@@ -13,6 +13,7 @@ export default function Reports(): React.JSX.Element {
   const [from, setFrom] = useState(todayStr())
   const [to, setTo] = useState(todayStr())
   const [report, setReport] = useState<SalesReport | null>(null)
+  const [expSummary, setExpSummary] = useState<{ total: number; byCategory: { category: string; total: number }[]; byItem: { itemName: string; purchases: number; total: number; lastDate: string }[] } | null>(null)
   const [msg, setMsg] = useState('')
 
   const load = useCallback(async (): Promise<void> => {
@@ -20,6 +21,8 @@ export default function Reports(): React.JSX.Element {
     const res = await window.api.reports.sales({ from, to })
     if (res.ok && res.data) setReport(res.data)
     else setMsg(res.error ?? 'Failed to load report')
+    const eRes = await window.api.expenses.summary({ from, to })
+    if (eRes.ok && eRes.data) setExpSummary(eRes.data)
   }, [from, to])
 
   useEffect(() => {
@@ -106,6 +109,77 @@ export default function Reports(): React.JSX.Element {
               <p className="mt-1 text-lg font-bold">{s.cancelledOrders} orders</p>
             </div>
           </div>
+
+          {expSummary && (
+            <div className="rounded-md border bg-card p-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Sales (paid)</p>
+                  <p className="mt-1 text-xl font-bold">Rs {s.paidRevenue}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Expenses</p>
+                  <p className="mt-1 text-xl font-bold">Rs {expSummary.total}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Profit</p>
+                  <p
+                    className={`mt-1 text-xl font-bold ${s.paidRevenue - expSummary.total < 0 ? 'text-destructive' : 'text-green-600 dark:text-green-500'}`}
+                  >
+                    Rs {s.paidRevenue - expSummary.total}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {expSummary && expSummary.byCategory.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="overflow-hidden rounded-md border">
+                <div className="border-b bg-muted/50 px-3 py-2 text-sm font-semibold">
+                  Expenses by Category
+                </div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {expSummary.byCategory.map((c) => (
+                      <tr key={c.category} className="border-t">
+                        <td className="px-3 py-2 capitalize">{c.category}</td>
+                        <td className="px-3 py-2 text-right font-medium">Rs {c.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="overflow-hidden rounded-md border">
+                <div className="border-b bg-muted/50 px-3 py-2 text-sm font-semibold">
+                  Purchases by Item
+                </div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {expSummary.byItem.map((i) => (
+                      <tr key={i.itemName} className="border-t">
+                        <td className="px-3 py-2">{i.itemName}</td>
+                        <td className="px-3 py-2 text-right text-muted-foreground">
+                          {i.purchases}x
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium">Rs {i.total}</td>
+                        <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                          {i.lastDate}
+                        </td>
+                      </tr>
+                    ))}
+                    {expSummary.byItem.length === 0 && (
+                      <tr>
+                        <td className="p-4 text-center text-muted-foreground">
+                          No item-tracked purchases
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="overflow-hidden rounded-md border">

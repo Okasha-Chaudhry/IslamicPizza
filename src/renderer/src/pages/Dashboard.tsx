@@ -12,12 +12,15 @@ function todayStr(): string {
 export default function Dashboard(): React.JSX.Element {
   const navigate = useNavigate()
   const [report, setReport] = useState<SalesReport | null>(null)
+  const [expenseTotal, setExpenseTotal] = useState(0)
   const [now, setNow] = useState(new Date())
 
   const load = useCallback(async (): Promise<void> => {
     const t = todayStr()
     const res = await window.api.reports.sales({ from: t, to: t })
     if (res.ok && res.data) setReport(res.data)
+    const eRes = await window.api.expenses.summary({ from: t, to: t })
+    if (eRes.ok && eRes.data) setExpenseTotal(eRes.data.total)
   }, [])
 
   useEffect(() => {
@@ -81,6 +84,21 @@ export default function Dashboard(): React.JSX.Element {
         <div className="rounded-md border bg-card p-4">
           <p className="text-xs text-muted-foreground">Avg Order</p>
           <p className="mt-1 text-2xl font-bold">Rs {s?.avgOrderValue ?? 0}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-md border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Today&apos;s Expenses</p>
+          <p className="mt-1 text-2xl font-bold">Rs {expenseTotal}</p>
+        </div>
+        <div className="rounded-md border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Today&apos;s Profit (Sales - Expenses)</p>
+          <p
+            className={`mt-1 text-2xl font-bold ${(s?.paidRevenue ?? 0) - expenseTotal < 0 ? 'text-destructive' : 'text-green-600 dark:text-green-500'}`}
+          >
+            Rs {(s?.paidRevenue ?? 0) - expenseTotal}
+          </p>
         </div>
       </div>
 
