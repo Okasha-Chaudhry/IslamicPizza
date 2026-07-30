@@ -14,6 +14,7 @@ import { useCartStore, cartSubtotal } from '@/stores/cart-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import type {
+  Customer,
   Category,
   NamedEntity,
   ProductWithVariants,
@@ -58,6 +59,8 @@ export default function NewOrder(): React.JSX.Element {
   const [error, setError] = useState('')
   const [savedMsg, setSavedMsg] = useState('')
   const [saving, setSaving] = useState(false)
+  const [custSuggestions, setCustSuggestions] = useState<Customer[]>([])
+  const [showCustSuggestions, setShowCustSuggestions] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([])
@@ -142,6 +145,28 @@ export default function NewOrder(): React.JSX.Element {
     }
   }
 
+  async function onPhoneChange(value: string): Promise<void> {
+    cart.setCustomerPhone(value)
+    if (value.trim().length >= 3) {
+      const res = await window.api.customers.search(value)
+      if (res.ok && res.data && res.data.length > 0) {
+        setCustSuggestions(res.data)
+        setShowCustSuggestions(true)
+      } else {
+        setShowCustSuggestions(false)
+      }
+    } else {
+      setShowCustSuggestions(false)
+    }
+  }
+
+  function pickCustomer(c: Customer): void {
+    cart.setCustomerPhone(c.phone)
+    cart.setCustomerName(c.name ?? '')
+    cart.setCustomerAddress(c.address ?? '')
+    setShowCustSuggestions(false)
+  }
+
   function pickProduct(p: ProductWithVariants): void {
     if (p.hasVariants) {
       setVariantProduct(p)
@@ -192,6 +217,7 @@ export default function NewOrder(): React.JSX.Element {
       orderType: cart.orderType,
       tableId: cart.tableId,
       waiterId: cart.waiterId,
+      customerName: cart.customerName,
       customerPhone: cart.customerPhone,
       customerAddress: cart.customerAddress,
       discountPercent: cart.discountPercent,
@@ -288,11 +314,42 @@ export default function NewOrder(): React.JSX.Element {
 
         {cart.orderType === 'delivery' && (
           <div className="flex gap-2">
+            <div className="relative w-48">
+              <Input
+                className="h-11"
+                placeholder="Customer Phone"
+                value={cart.customerPhone}
+                onChange={(e) => void onPhoneChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowCustSuggestions(false), 150)}
+              />
+              {showCustSuggestions && (
+                <div className="absolute top-full z-50 mt-1 w-80 rounded-md border bg-popover p-1 shadow-md">
+                  {custSuggestions.map((c) => (
+                    <button
+                      key={c.id}
+                      className="flex w-full flex-col rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        pickCustomer(c)
+                      }}
+                    >
+                      <span className="font-medium">
+                        {c.phone}
+                        {c.name ? ` - ${c.name}` : ''}
+                      </span>
+                      {c.address && (
+                        <span className="truncate text-xs text-muted-foreground">{c.address}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Input
-              className="h-11 w-48"
-              placeholder="Customer Phone"
-              value={cart.customerPhone}
-              onChange={(e) => cart.setCustomerPhone(e.target.value)}
+              className="h-11 w-40"
+              placeholder="Name (optional)"
+              value={cart.customerName}
+              onChange={(e) => cart.setCustomerName(e.target.value)}
             />
             <Input
               className="h-11 flex-1"

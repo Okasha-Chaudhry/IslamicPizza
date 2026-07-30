@@ -16,6 +16,7 @@ interface CartState {
   orderType: OrderType
   tableId: number | null
   waiterId: number | null
+  customerName: string
   customerPhone: string
   customerAddress: string
   discountPercent: number
@@ -23,6 +24,7 @@ interface CartState {
   setOrderType: (t: OrderType) => void
   setTableId: (id: number | null) => void
   setWaiterId: (id: number | null) => void
+  setCustomerName: (v: string) => void
   setCustomerPhone: (v: string) => void
   setCustomerAddress: (v: string) => void
   setDiscountPercent: (v: number) => void
@@ -38,6 +40,7 @@ export const useCartStore = create<CartState>((set) => ({
   orderType: 'take_away',
   tableId: null,
   waiterId: null,
+  customerName: '',
   customerPhone: '',
   customerAddress: '',
   discountPercent: 0,
@@ -46,6 +49,7 @@ export const useCartStore = create<CartState>((set) => ({
   setOrderType: (t) => set({ orderType: t }),
   setTableId: (id) => set({ tableId: id }),
   setWaiterId: (id) => set({ waiterId: id }),
+  setCustomerName: (v) => set({ customerName: v }),
   setCustomerPhone: (v) => set({ customerPhone: v }),
   setCustomerAddress: (v) => set({ customerAddress: v }),
   setDiscountPercent: (v) =>
@@ -89,6 +93,7 @@ export const useCartStore = create<CartState>((set) => ({
       orderType: 'take_away',
       tableId: null,
       waiterId: null,
+      customerName: '',
       customerPhone: '',
       customerAddress: '',
       discountPercent: 0,
