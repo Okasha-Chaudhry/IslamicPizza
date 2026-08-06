@@ -22,11 +22,7 @@ function printHtml(html: string, printerName: string, pageWidthMm: number): Prom
         {
           silent: true,
           deviceName: printerName || undefined,
-          margins: { marginType: 'none' },
-          pageSize: {
-            width: Math.round(pageWidthMm * 1000),
-            height: 297000
-          }
+          margins: { marginType: 'none' }
         },
         (success, failureReason) => {
           cleanup()
