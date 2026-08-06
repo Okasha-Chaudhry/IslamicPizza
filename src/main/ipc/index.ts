@@ -141,6 +141,7 @@ export function registerIpcHandlers(): void {
 
   handle('orders:create', ordersService.createOrder)
   handle('orders:list', ordersService.listOrders)
+  handle('orders:updateItems', ordersService.updateOrderItems)
   handle('orders:updateStatus', ordersService.updateOrderStatus)
 
   handle('waiters:list', waitersService.list)

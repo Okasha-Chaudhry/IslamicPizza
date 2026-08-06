@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Printer, ChefHat, Ban, CircleCheck, RefreshCw } from 'lucide-react'
+import { Printer, ChefHat, Ban, CircleCheck, RefreshCw, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth-store'
+import { useCartStore } from '@/stores/cart-store'
 import type { OrderWithItems, OrderStatus } from '../../../shared/types'
 
 const STATUS_TABS: { key: OrderStatus | 'all'; label: string }[] = [
@@ -39,6 +41,8 @@ export default function Orders(): React.JSX.Element {
   const [selected, setSelected] = useState<OrderWithItems | null>(null)
   const [msg, setMsg] = useState('')
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
+  const navigate = useNavigate()
+  const cart = useCartStore()
 
   const refresh = useCallback(async (): Promise<void> => {
     const res = await window.api.orders.list({ date, status })
@@ -226,6 +230,38 @@ export default function Orders(): React.JSX.Element {
               {selected.status !== 'paid' && selected.status !== 'cancelled' && (
                 <Button className="h-11" onClick={() => void setOrderStatus(selected, 'paid')}>
                   <CircleCheck className="size-4" /> Mark Paid
+                </Button>
+              )}
+              {(selected.status === 'pending' || selected.status === 'kitchen_printed') && (
+                <Button
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => {
+                    cart.clear()
+                    cart.startEditing(selected.id, selected.orderNumber)
+                    cart.setOrderType(selected.orderType)
+                    if (selected.tableId) cart.setTableId(selected.tableId)
+                    if (selected.waiterId) cart.setWaiterId(selected.waiterId)
+                    cart.setCustomerName('')
+                    if (selected.customerPhone) cart.setCustomerPhone(selected.customerPhone)
+                    if (selected.customerAddress) cart.setCustomerAddress(selected.customerAddress)
+                    cart.setDiscountPercent(selected.discountPercent)
+                    for (const item of selected.items) {
+                      for (let q = 0; q < item.quantity; q++) {
+                        cart.addLine({
+                          productId: item.productId,
+                          variantId: item.variantId,
+                          productName: item.productName,
+                          variantName: item.variantName,
+                          unitPrice: item.unitPrice
+                        })
+                      }
+                      if (item.note) cart.setNote(`${item.productId}:${item.variantId ?? 'base'}`, item.note)
+                    }
+                    navigate('/new-order')
+                  }}
+                >
+                  <Pencil className="size-4" /> Edit Order
                 </Button>
               )}
               {isAdmin && selected.status !== 'cancelled' && selected.status !== 'paid' && (

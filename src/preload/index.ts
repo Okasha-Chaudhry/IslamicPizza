@@ -128,7 +128,13 @@ const api = {
     create: (input: CreateOrderInput): Promise<ApiResult<OrderWithItems>> =>
       ipcRenderer.invoke('orders:create', input),
     updateStatus: (id: number, status: OrderStatus): Promise<ApiResult<OrderWithItems>> =>
-      ipcRenderer.invoke('orders:updateStatus', id, status)
+      ipcRenderer.invoke('orders:updateStatus', id, status),
+    updateItems: (input: {
+      orderId: number
+      discountPercent: number
+      note?: string
+      items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
+    }): Promise<ApiResult<OrderWithItems>> => ipcRenderer.invoke('orders:updateItems', input)
   },
   tables: namedEntityApi('tables'),
   waiters: namedEntityApi('waiters')

@@ -201,6 +201,37 @@ export default function NewOrder(): React.JSX.Element {
   const discountAmount = Math.round((subtotal * cart.discountPercent) / 100)
   const total = subtotal - discountAmount
 
+  async function updateOrder(): Promise<void> {
+    setError('')
+    setSavedMsg('')
+    if (cart.lines.length === 0) {
+      setError('Cart is empty')
+      return
+    }
+    if (!cart.editingOrderId) return
+    setSaving(true)
+    const res = await window.api.orders.updateItems({
+      orderId: cart.editingOrderId,
+      discountPercent: cart.discountPercent,
+      items: cart.lines.map((l) => ({
+        productId: l.productId,
+        variantId: l.variantId,
+        quantity: l.quantity,
+        note: l.note || undefined
+      }))
+    })
+    if (!res.ok || !res.data) {
+      setError(res.error ?? 'Failed to update order')
+      setSaving(false)
+      return
+    }
+    setSavedMsg(`Order ${res.data.orderNumber} updated - Rs ${res.data.total}`)
+    cart.clear()
+    setQuery('')
+    setSaving(false)
+    searchRef.current?.focus()
+  }
+
   async function saveOrder(
     action: 'paid_print' | 'paid_only' | 'kitchen_slip' | 'print_receipt'
   ): Promise<void> {
@@ -258,6 +289,21 @@ export default function NewOrder(): React.JSX.Element {
   return (
     <div className="flex h-full">
       <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
+        {cart.editingOrderId && (
+          <div className="flex items-center justify-between rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm dark:border-amber-600 dark:bg-amber-950/40">
+            <span className="font-medium">Editing Order #{cart.editingOrderNumber}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                cart.clear()
+                setQuery('')
+              }}
+            >
+              Cancel Edit
+            </Button>
+          </div>
+        )}
         <div className="flex gap-2">
           {(
             [
@@ -545,6 +591,13 @@ export default function NewOrder(): React.JSX.Element {
           {error && <p className="text-sm text-destructive">{error}</p>}
           {savedMsg && <p className="text-sm text-green-600 dark:text-green-500">{savedMsg}</p>}
 
+          {cart.editingOrderId ? (
+            <div className="grid gap-2 pt-1">
+              <Button className="h-12" disabled={saving} onClick={() => void updateOrder()}>
+                Update Order
+              </Button>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-2 pt-1">
             <Button className="h-12" disabled={saving} onClick={() => void saveOrder('paid_print')}>
               Paid + Print
@@ -574,6 +627,7 @@ export default function NewOrder(): React.JSX.Element {
               Print Receipt
             </Button>
           </div>
+          )}
         </div>
       </div>
 

@@ -189,6 +189,104 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
   })) as unknown as OrderWithItems[]
 }
 
+export function updateOrderItems(input: {
+  orderId: number
+  discountPercent: number
+  note?: string
+  items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
+}): OrderWithItems {
+  if (!input.items || input.items.length === 0) throw new Error('Order has no items')
+  const discountPercent = Math.round(input.discountPercent ?? 0)
+  if (discountPercent < 0 || discountPercent > 100) {
+    throw new Error('Discount must be between 0 and 100')
+  }
+
+  const db = getDb()
+  const sqlite = getSqlite()
+
+  const tx = sqlite.transaction((): OrderWithItems => {
+    const existing = db.select().from(orders).where(eq(orders.id, input.orderId)).get()
+    if (!existing) throw new Error('Order not found')
+    if (existing.status !== 'pending' && existing.status !== 'kitchen_printed') {
+      throw new Error('Only pending or kitchen orders can be edited')
+    }
+
+    // Reverse old timesSold
+    const oldItems = db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId)).all()
+    const unbump = sqlite.prepare(
+      `UPDATE products SET times_sold = MAX(0, times_sold - ?) WHERE id = ?`
+    )
+    for (const item of oldItems) {
+      unbump.run(item.quantity, item.productId)
+    }
+
+    db.delete(orderItems).where(eq(orderItems.orderId, input.orderId)).run()
+
+    // Resolve new items from DB (same as create)
+    const resolvedItems = input.items.map((item) => {
+      const product = db.select().from(products).where(eq(products.id, item.productId)).get()
+      if (!product) throw new Error(`Product ${item.productId} not found`)
+      if (item.quantity < 1) throw new Error('Quantity must be at least 1')
+
+      let unitPrice = product.price
+      let variantName: string | null = null
+      if (item.variantId != null) {
+        const variant = db.select().from(variants).where(eq(variants.id, item.variantId)).get()
+        if (!variant || variant.productId !== product.id) throw new Error('Invalid variant')
+        unitPrice = variant.price
+        variantName = variant.name
+      } else if (product.hasVariants) {
+        throw new Error(`${product.name} requires a variant`)
+      }
+
+      return {
+        orderId: input.orderId,
+        productId: product.id,
+        variantId: item.variantId ?? null,
+        productName: product.name,
+        variantName,
+        unitPrice,
+        quantity: Math.round(item.quantity),
+        note: item.note?.trim() || null,
+        lineTotal: unitPrice * Math.round(item.quantity)
+      }
+    })
+
+    const subtotal = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0)
+    const discount = Math.round((subtotal * discountPercent) / 100)
+    const total = subtotal - discount
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+
+    const savedItems = resolvedItems.map((item) =>
+      db.insert(orderItems).values(item).returning().get()
+    )
+
+    const bump = sqlite.prepare(
+      `UPDATE products SET times_sold = times_sold + ?, last_sold_at = ? WHERE id = ?`
+    )
+    for (const item of resolvedItems) {
+      bump.run(item.quantity, now, item.productId)
+    }
+
+    const order = db
+      .update(orders)
+      .set({
+        subtotal,
+        discountPercent,
+        discount,
+        total,
+        note: input.note?.trim() || existing.note
+      })
+      .where(eq(orders.id, input.orderId))
+      .returning()
+      .get()
+
+    return { ...order, items: savedItems }
+  })
+
+  return tx()
+}
+
 export function updateOrderStatus(id: number, status: OrderStatus): OrderWithItems {
   const db = getDb()
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ')

@@ -13,6 +13,8 @@ export interface CartLine {
 }
 
 interface CartState {
+  editingOrderId: number | null
+  editingOrderNumber: string | null
   orderType: OrderType
   tableId: number | null
   waiterId: number | null
@@ -21,6 +23,8 @@ interface CartState {
   customerAddress: string
   discountPercent: number
   lines: CartLine[]
+  startEditing: (orderId: number, orderNumber: string) => void
+  stopEditing: () => void
   setOrderType: (t: OrderType) => void
   setTableId: (id: number | null) => void
   setWaiterId: (id: number | null) => void
@@ -37,6 +41,8 @@ interface CartState {
 }
 
 export const useCartStore = create<CartState>((set) => ({
+  editingOrderId: null,
+  editingOrderNumber: null,
   orderType: 'take_away',
   tableId: null,
   waiterId: null,
@@ -46,6 +52,8 @@ export const useCartStore = create<CartState>((set) => ({
   discountPercent: 0,
   lines: [],
 
+  startEditing: (orderId, orderNumber) => set({ editingOrderId: orderId, editingOrderNumber: orderNumber }),
+  stopEditing: () => set({ editingOrderId: null, editingOrderNumber: null }),
   setOrderType: (t) => set({ orderType: t }),
   setTableId: (id) => set({ tableId: id }),
   setWaiterId: (id) => set({ waiterId: id }),
@@ -90,6 +98,8 @@ export const useCartStore = create<CartState>((set) => ({
 
   clear: () =>
     set({
+      editingOrderId: null,
+      editingOrderNumber: null,
       orderType: 'take_away',
       tableId: null,
       waiterId: null,
