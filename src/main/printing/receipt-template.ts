@@ -71,14 +71,22 @@ export function buildReceiptHtml(
 
   const headerHtml = isKitchen
     ? `<div class="center bold big">KITCHEN SLIP</div>`
-    : `<div class="center bold big">${esc(settings.restaurantName)}</div>
+    : `${settings.receiptLogo ? `<div class="center"><img class="logo" src="file://${settings.receiptLogo.replace(/\\/g, '/')}" /></div>` : ''}<div class="center bold big">${esc(settings.restaurantName)}</div>
       ${settings.receiptHeader ? `<div class="center bold subhead">${esc(settings.receiptHeader)}</div>` : ''}
       <div class="center small">${esc(settings.address)}</div>
       <div class="center small">${esc(settings.phone)}</div>`
 
+  const qrHtml =
+    !isKitchen && settings.paymentQr
+      ? `<div class="rule"></div>
+         <div class="center"><img class="qr" src="file://${settings.paymentQr.replace(/\\/g, '/')}" /></div>
+         <div class="center small">Scan to pay</div>`
+      : ''
+
   const footerHtml = isKitchen
     ? ''
-    : `<div class="rule"></div><div class="center small">${esc(settings.receiptFooter)}</div>`
+    : `${qrHtml}<div class="rule"></div><div class="center small">${esc(settings.receiptFooter)}</div>
+       <div class="center small powered">Powered by XIOM - 03XX-XXXXXXX</div>`
 
   return `<!DOCTYPE html>
 <html>
@@ -98,6 +106,9 @@ export function buildReceiptHtml(
   .big { font-size: 1.5em; }
   .small { font-size: 0.85em; }
   .subhead { font-size: 1.2em; }
+  .logo { max-width: 40mm; max-height: 20mm; margin-bottom: 1mm; }
+  .qr { width: 28mm; height: 28mm; margin: 1mm 0; }
+  .powered { margin-top: 1mm; font-size: 0.75em; }
   .rule { border-top: 1px dashed #000; margin: 2mm 0; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 0.5mm 0; vertical-align: top; }

@@ -123,6 +123,72 @@ export default function Settings(): React.JSX.Element {
           />
         </div>
         <div className="space-y-2">
+          <Label>Receipt Logo (printed at top)</Label>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-11"
+              onClick={async () => {
+                const res = await window.api.settings.pickImage('logo')
+                setMsg(res.ok ? 'Logo saved' : (res.error ?? 'Failed'))
+                const s = await window.api.settings.get()
+                if (s.ok && s.data) setSettings(s.data)
+              }}
+            >
+              {settings.receiptLogo ? 'Change Logo' : 'Upload Logo'}
+            </Button>
+            {settings.receiptLogo && (
+              <Button
+                variant="ghost"
+                className="h-11 text-destructive"
+                onClick={async () => {
+                  await window.api.settings.clearImage('logo')
+                  const s = await window.api.settings.get()
+                  if (s.ok && s.data) setSettings(s.data)
+                }}
+              >
+                Remove
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {settings.receiptLogo ? 'Logo set' : 'No logo'}
+            </span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Payment QR (JazzCash/RAAST - printed near total)</Label>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-11"
+              onClick={async () => {
+                const res = await window.api.settings.pickImage('qr')
+                setMsg(res.ok ? 'QR saved' : (res.error ?? 'Failed'))
+                const s = await window.api.settings.get()
+                if (s.ok && s.data) setSettings(s.data)
+              }}
+            >
+              {settings.paymentQr ? 'Change QR' : 'Upload QR'}
+            </Button>
+            {settings.paymentQr && (
+              <Button
+                variant="ghost"
+                className="h-11 text-destructive"
+                onClick={async () => {
+                  await window.api.settings.clearImage('qr')
+                  const s = await window.api.settings.get()
+                  if (s.ok && s.data) setSettings(s.data)
+                }}
+              >
+                Remove
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {settings.paymentQr ? 'QR set' : 'No QR'}
+            </span>
+          </div>
+        </div>
+        <div className="space-y-2">
           <Label>Receipt Width</Label>
           <Select
             value={settings.receiptWidth}

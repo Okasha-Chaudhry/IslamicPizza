@@ -98,6 +98,10 @@ const api = {
       ipcRenderer.invoke('users:update', input)
   },
   settings: {
+    pickImage: (kind: 'logo' | 'qr'): Promise<ApiResult<string>> =>
+      ipcRenderer.invoke('settings:pickImage', kind),
+    clearImage: (kind: 'logo' | 'qr'): Promise<ApiResult<void>> =>
+      ipcRenderer.invoke('settings:clearImage', kind),
     get: (): Promise<ApiResult<AppSettings>> => ipcRenderer.invoke('settings:get'),
     save: (input: Partial<AppSettings>): Promise<ApiResult<AppSettings>> =>
       ipcRenderer.invoke('settings:save', input)

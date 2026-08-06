@@ -13,7 +13,9 @@ import * as licenseService from '../services/license.service'
 import * as expensesService from '../services/expenses.service'
 import * as customersService from '../services/customers.service'
 import type { OrderWithItems } from '../../shared/types'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, dialog, app } from 'electron'
+import { join } from 'path'
+import { copyFileSync } from 'fs'
 
 function handle<TArgs extends unknown[], TResult>(
   channel: string,
@@ -55,6 +57,41 @@ export function registerIpcHandlers(): void {
   handle('users:list', usersService.listUsers)
   handle('users:create', usersService.createUser)
   handle('users:update', usersService.updateUser)
+
+  ipcMain.handle('settings:pickImage', async (_e, kind: 'logo' | 'qr') => {
+    try {
+      const result = await dialog.showOpenDialog({
+        title: kind === 'logo' ? 'Select Receipt Logo' : 'Select Payment QR Image',
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
+        properties: ['openFile']
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return { ok: false, error: 'Cancelled' }
+      }
+      const destName = kind === 'logo' ? 'receipt-logo.png' : 'payment-qr.png'
+      const destPath = join(app.getPath('userData'), destName)
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const sharp = require('sharp')
+      await sharp(result.filePaths[0])
+        .flatten({ background: '#ffffff' })
+        .resize(384, 384, { fit: 'inside', withoutEnlargement: false })
+        .greyscale()
+        .normalise()
+        .png()
+        .toFile(destPath)
+      const key = kind === 'logo' ? 'receiptLogo' : 'paymentQr'
+      settingsService.saveSettings({ [key]: destPath })
+      return { ok: true, data: destPath }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Image failed' }
+    }
+  })
+
+  ipcMain.handle('settings:clearImage', (_e, kind: 'logo' | 'qr') => {
+    const key = kind === 'logo' ? 'receiptLogo' : 'paymentQr'
+    settingsService.saveSettings({ [key]: '' })
+    return { ok: true }
+  })
 
   handle('settings:get', settingsService.getSettings)
   handle('settings:save', settingsService.saveSettings)
