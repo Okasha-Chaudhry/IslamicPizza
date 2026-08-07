@@ -65,6 +65,33 @@ Add-Type -TypeDefinition $src -Language CSharp
   })
 }
 
+const LINE_WIDTH = 48
+
+function padRow(left: string, right: string): string {
+  const space = Math.max(1, LINE_WIDTH - left.length - right.length)
+  return left + ' '.repeat(space) + right
+}
+
+function itemRows(name: string, qty: number, amount: string): string {
+  const qtyAmt = `${qty}   ${amount}`
+  const nameWidth = LINE_WIDTH - qtyAmt.length - 1
+  const lines: string[] = []
+  let remaining = name
+  let first = true
+  while (remaining.length > 0) {
+    const chunk = remaining.slice(0, first ? nameWidth : LINE_WIDTH)
+    remaining = remaining.slice(chunk.length)
+    if (first) {
+      const space = Math.max(1, LINE_WIDTH - chunk.length - qtyAmt.length)
+      lines.push(chunk + ' '.repeat(space) + qtyAmt)
+      first = false
+    } else {
+      lines.push(chunk)
+    }
+  }
+  return lines.join('\n')
+}
+
 function money(n: number): string {
   return `Rs ${n}`
 }
@@ -105,20 +132,11 @@ export async function printReceiptEscpos(
   if (order.customerAddress) printer.println(`Address: ${order.customerAddress}`)
   printer.drawLine()
 
-  printer.tableCustom([
-    { text: 'Item', align: 'LEFT', width: 0.5 },
-    { text: 'Qty', align: 'CENTER', width: 0.15 },
-    { text: 'Amount', align: 'RIGHT', width: 0.35 }
-  ])
+  printer.println(padRow('Item', 'Qty  Amount'))
   printer.drawLine()
-
   for (const item of order.items) {
-    const name = item.variantName ? `${item.productName} (${item.variantName})` : item.productName
-    printer.tableCustom([
-      { text: name, align: 'LEFT', width: 0.5 },
-      { text: String(item.quantity), align: 'CENTER', width: 0.15 },
-      { text: money(item.lineTotal), align: 'RIGHT', width: 0.35 }
-    ])
+    const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
+    printer.println(itemRows(name, item.quantity, money(item.lineTotal)))
   }
   printer.drawLine()
 
