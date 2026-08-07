@@ -86,7 +86,7 @@ export function buildReceiptHtml(
   const footerHtml = isKitchen
     ? ''
     : `${qrHtml}<div class="rule"></div><div class="center small">${esc(settings.receiptFooter)}</div>
-       <div class="center small powered">Powered by XIOM - 03XX-XXXXXXX</div>`
+       <div class="center small powered">Powered by XIOM - 0310-1617048</div>`
 
   return `<!DOCTYPE html>
 <html>
