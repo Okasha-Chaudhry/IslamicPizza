@@ -15,9 +15,9 @@ export interface AppSettings {
 }
 
 const DEFAULTS: AppSettings = {
-  restaurantName: 'Islamic Pizza & Fast Food',
-  address: 'Muqabil Allah Wali Market, Jatoi Road, Shehar Sultan',
-  phone: '0305-1415678 / 0306-1415678',
+  restaurantName: 'My Restaurant',
+  address: '',
+  phone: '',
   receiptHeader: '',
   receiptFooter: 'Thank you for your order!',
   currency: 'Rs',

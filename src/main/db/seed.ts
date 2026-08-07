@@ -144,6 +144,9 @@ const MENU: Record<string, SeedProduct[]> = {
 }
 
 export function seedIfEmpty(): void {
+  // Generic build: no menu seeding. Client menu entered at delivery.
+  // (Islamic Pizza menu kept below; remove this return for their builds.)
+  return
 
   const sqlite = getSqlite()
   const count = sqlite.prepare('SELECT COUNT(*) as c FROM products').get() as { c: number }
