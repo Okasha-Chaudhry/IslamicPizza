@@ -1,4 +1,9 @@
 import { BrowserWindow, dialog } from 'electron'
+import {
+  printReceiptEscpos,
+  printKitchenEscpos,
+  testPrintEscpos
+} from './escpos-print.service'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { restaurantTables, waiters, users } from '../db/schema'
@@ -130,31 +135,15 @@ export async function printReport(report: {
 
 export async function printTest(): Promise<void> {
   const settings = getSettings()
-  const widthMm = settings.receiptWidth === '58' ? 58 : settings.receiptWidth === '80' ? 80 : 210
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    body { font-family: 'Courier New', monospace; font-size: 12px; padding: 2mm; width: ${widthMm === 58 ? '44mm' : widthMm === 80 ? '64mm' : '190mm'}; }
-    .c { text-align: center; }
-  </style></head><body>
-    <div class="c"><b>PRINTER TEST</b></div>
-    <div class="c">${settings.restaurantName}</div>
-    <div class="c">${new Date().toLocaleString()}</div>
-    <div class="c">Printer: ${settings.defaultPrinter || 'System default'}</div>
-    <div class="c">--- If you can read this, printing works ---</div>
-  </body></html>`
-  await printHtml(html, settings.defaultPrinter, widthMm)
+  await testPrintEscpos(settings.defaultPrinter)
 }
 
 export async function printReceipt(order: OrderWithItems): Promise<void> {
   const settings = getSettings()
-  const widthMm = settings.receiptWidth === '58' ? 58 : settings.receiptWidth === '80' ? 80 : 210
-  const html = buildReceiptHtml(order, settings, 'receipt', resolveNames(order))
-  await printHtml(html, settings.defaultPrinter, widthMm)
+  await printReceiptEscpos(order, settings, resolveNames(order))
 }
 
 export async function printKitchenSlip(order: OrderWithItems): Promise<void> {
   const settings = getSettings()
-  const widthMm = settings.receiptWidth === '58' ? 58 : settings.receiptWidth === '80' ? 80 : 210
-  const html = buildReceiptHtml(order, settings, 'kitchen', resolveNames(order))
-  const printer = settings.kitchenPrinter || settings.defaultPrinter
-  await printHtml(html, printer, widthMm)
+  await printKitchenEscpos(order, settings, resolveNames(order))
 }
