@@ -6,7 +6,7 @@ import { getSettings } from '../services/settings.service'
 import { buildReceiptHtml } from './receipt-template'
 import type { OrderWithItems } from '../../shared/types'
 
-function printHtml(html: string, printerName: string, _pageWidthMm: number): Promise<void> {
+function printHtml(html: string, printerName: string, pageWidthMm: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const win = new BrowserWindow({
       show: false,
@@ -17,12 +17,28 @@ function printHtml(html: string, printerName: string, _pageWidthMm: number): Pro
       if (!win.isDestroyed()) win.destroy()
     }
 
-    win.webContents.on('did-finish-load', () => {
+    win.webContents.on('did-finish-load', async () => {
+      // Content ki asal height (px) naap ke print area us hisaab se rakho
+      let heightMicrons = 200000
+      try {
+        const heightPx = (await win.webContents.executeJavaScript(
+          'Math.ceil(document.body.getBoundingClientRect().height)'
+        )) as number
+        // 96 px = 1 inch = 25400 microns
+        const px = Number.isFinite(heightPx) && heightPx > 0 ? heightPx : 700
+        heightMicrons = Math.max(50000, Math.round((px / 96) * 25400) + 12000)
+      } catch {
+        // fallback stays 200000
+      }
       win.webContents.print(
         {
           silent: true,
           deviceName: printerName || undefined,
-          margins: { marginType: 'none' }
+          margins: { marginType: 'none' },
+          pageSize: {
+            width: Math.round(_pageWidthMm * 1000),
+            height: heightMicrons
+          }
         },
         (success, failureReason) => {
           cleanup()
