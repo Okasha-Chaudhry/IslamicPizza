@@ -20,6 +20,7 @@ import { useTheme } from '@/providers/theme-provider'
 import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import logo from '@/assets/logo.png'
+import xiomLogo from '@/assets/xiom-logo.png'
 
 const navItems: { to: string; label: string; icon: typeof LayoutDashboard; highlight?: boolean; adminOnly?: boolean }[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -123,6 +124,9 @@ export default function MainLayout(): React.JSX.Element {
             {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </Button>
+          <div className="mt-2 flex items-center justify-center border-t pt-3 opacity-70">
+            <img src={xiomLogo} alt="" className="h-14 dark:invert" />
+          </div>
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto">

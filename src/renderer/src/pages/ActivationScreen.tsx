@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import logo from '@/assets/logo.png'
+import xiomLogo from '@/assets/xiom-logo.png'
 import type { LicenseStatus } from '../../../shared/types'
 
 interface Props {
@@ -74,6 +75,10 @@ export default function ActivationScreen({ status, onActivated }: Props): React.
         <Button className="h-12 w-full" onClick={() => void activate()}>
           Activate
         </Button>
+      </div>
+      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1 opacity-70">
+        <img src={xiomLogo} alt="" className="h-14 dark:invert" />
+        <p className="text-xs text-muted-foreground">Software by XIOM - 0310-1617048</p>
       </div>
     </div>
   )

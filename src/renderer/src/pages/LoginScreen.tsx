@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import PinPad from '@/components/auth/PinPad'
 import logo from '@/assets/logo.png'
+import xiomLogo from '@/assets/xiom-logo.png'
 import { useAuthStore } from '@/stores/auth-store'
 
 export default function LoginScreen(): React.JSX.Element {
@@ -107,6 +108,9 @@ export default function LoginScreen(): React.JSX.Element {
         />
 
         {error && <p className="text-center text-sm text-destructive">{error}</p>}
+      </div>
+      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center opacity-100">
+        <img src={xiomLogo} alt="" className="h-14 dark:invert" />
       </div>
     </div>
   )

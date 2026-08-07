@@ -1,3 +1,22 @@
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
+
+function xiomLogoDataUri(): string {
+  const candidates = [
+    join(process.resourcesPath ?? '', 'app.asar.unpacked', 'resources', 'xiom-logo.png'),
+    join(process.cwd(), 'resources', 'xiom-logo.png')
+  ]
+  for (const p of candidates) {
+    try {
+      if (existsSync(p)) {
+        return `data:image/png;base64,${readFileSync(p).toString('base64')}`
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return ''
+}
 import type { OrderWithItems } from '../../shared/types'
 import type { AppSettings } from '../services/settings.service'
 
@@ -86,7 +105,7 @@ export function buildReceiptHtml(
   const footerHtml = isKitchen
     ? ''
     : `${qrHtml}<div class="rule"></div><div class="center small">${esc(settings.receiptFooter)}</div>
-       <div class="center small powered">Powered by XIOM - 0310-1617048</div>`
+       <div class="center powered">${xiomLogoDataUri() ? `<img class="xiom" src="${xiomLogoDataUri()}" /><br/>` : ''}<span class="small">Powered by XIOM - 0310-1617048</span></div>`
 
   return `<!DOCTYPE html>
 <html>
@@ -109,6 +128,7 @@ export function buildReceiptHtml(
   .logo { max-width: 40mm; max-height: 20mm; margin-bottom: 1mm; }
   .qr { width: 28mm; height: 28mm; margin: 1mm 0; }
   .powered { margin-top: 1mm; font-size: 0.75em; }
+  .xiom { height: 5mm; margin-bottom: 0.5mm; }
   .rule { border-top: 1px dashed #000; margin: 2mm 0; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 0.5mm 0; vertical-align: top; }
