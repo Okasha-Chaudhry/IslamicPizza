@@ -6,7 +6,7 @@ import { getSettings } from '../services/settings.service'
 import { buildReceiptHtml } from './receipt-template'
 import type { OrderWithItems } from '../../shared/types'
 
-function printHtml(html: string, printerName: string, pageWidthMm: number): Promise<void> {
+function printHtml(html: string, printerName: string, _pageWidthMm: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const win = new BrowserWindow({
       show: false,

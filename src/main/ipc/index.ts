@@ -15,7 +15,6 @@ import * as customersService from '../services/customers.service'
 import type { OrderWithItems } from '../../shared/types'
 import { BrowserWindow, dialog, app } from 'electron'
 import { join } from 'path'
-import { copyFileSync } from 'fs'
 
 function handle<TArgs extends unknown[], TResult>(
   channel: string,
