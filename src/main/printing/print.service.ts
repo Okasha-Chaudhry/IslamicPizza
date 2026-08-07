@@ -8,7 +8,6 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { restaurantTables, waiters, users } from '../db/schema'
 import { getSettings } from '../services/settings.service'
-import { buildReceiptHtml } from './receipt-template'
 import type { OrderWithItems } from '../../shared/types'
 
 function printHtml(html: string, printerName: string, _pageWidthMm: number): Promise<void> {

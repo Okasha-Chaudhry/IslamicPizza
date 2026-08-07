@@ -1,5 +1,5 @@
 import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer'
-import type { OrderWithItems, Settings } from '../../shared/types'
+import type { OrderWithItems, AppSettings } from '../../shared/types'
 
 interface Names {
   tableName?: string
@@ -29,7 +29,7 @@ function row(left: string, right: string, width = 48): string {
 
 export async function printReceiptEscpos(
   order: OrderWithItems,
-  settings: Settings,
+  settings: AppSettings,
   names: Names
 ): Promise<void> {
   const printer = makePrinter(settings.defaultPrinter)
@@ -97,7 +97,7 @@ export async function printReceiptEscpos(
 
 export async function printKitchenEscpos(
   order: OrderWithItems,
-  settings: Settings,
+  settings: AppSettings,
   names: Names
 ): Promise<void> {
   const printerName = settings.kitchenPrinter || settings.defaultPrinter
