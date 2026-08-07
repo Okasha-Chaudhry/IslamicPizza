@@ -23,6 +23,13 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  // F12 toggles DevTools (works in production too - for print diagnosis)
+  mainWindow.webContents.on('before-input-event', (_e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      mainWindow.webContents.toggleDevTools()
+    }
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
