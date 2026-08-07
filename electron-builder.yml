@@ -1,5 +1,5 @@
-appId: com.okasha.restaurantpos
-productName: Restaurant POS
+appId: com.okasha.islamicpizzapos
+productName: Islamic Pizza POS
 directories:
   buildResources: build
 files:
@@ -19,7 +19,7 @@ win:
   executableName: RestaurantPOS
   icon: build/icon.ico
 nsis:
-  artifactName: restaurant-pos-1.1-setup.${ext}
+  artifactName: islamic-pizza-pos-1.1-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
