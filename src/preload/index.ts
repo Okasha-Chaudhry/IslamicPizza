@@ -119,6 +119,7 @@ const api = {
       ipcRenderer.invoke('reports:sales', filter)
   },
   print: {
+    raw: (text: string): Promise<ApiResult<void>> => ipcRenderer.invoke('print:raw', text),
     test: (): Promise<ApiResult<void>> => ipcRenderer.invoke('print:test'),
     report: (report: SalesReport): Promise<ApiResult<void>> => ipcRenderer.invoke('print:report', report),
     receipt: (order: OrderWithItems): Promise<ApiResult<void>> =>

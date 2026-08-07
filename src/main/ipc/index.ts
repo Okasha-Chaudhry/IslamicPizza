@@ -148,6 +148,15 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle('print:raw', async (_e, text: string) => {
+    try {
+      const { rawTestPrint } = await import('../printing/escpos-print.service')
+      await rawTestPrint(text)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Print failed' }
+    }
+  })
   ipcMain.handle('print:test', async () => {
     try {
       await printService.printTest()

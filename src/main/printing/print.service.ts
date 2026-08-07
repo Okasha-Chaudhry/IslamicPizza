@@ -2,7 +2,8 @@ import { BrowserWindow, dialog } from 'electron'
 import {
   printReceiptEscpos,
   printKitchenEscpos,
-  testPrintEscpos
+  testPrintEscpos,
+  printReportEscpos
 } from './escpos-print.service'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'

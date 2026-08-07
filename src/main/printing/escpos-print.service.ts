@@ -4,6 +4,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { execFile } from 'child_process'
 import type { OrderWithItems, AppSettings } from '../../shared/types'
+import { getSettings } from '../services/settings.service'
 
 interface Names {
   tableName?: string
@@ -173,6 +174,69 @@ export async function printKitchenEscpos(
   printer.cut()
 
   await sendRaw(printerName, printer.getBuffer())
+}
+
+export async function printReportEscpos(
+  report: {
+    from: string
+    to: string
+    summary: {
+      paidOrders: number
+      paidRevenue: number
+      pendingOrders: number
+      pendingAmount: number
+      cancelledOrders: number
+      totalDiscount: number
+      avgOrderValue: number
+    }
+    popular: { productName: string; variantName: string | null; quantity: number; revenue: number }[]
+  },
+  settings: AppSettings
+): Promise<void> {
+  const printer = makePrinter()
+  const s = report.summary
+  const range = report.from === report.to ? report.from : `${report.from} to ${report.to}`
+
+  printer.alignCenter()
+  printer.bold(true)
+  printer.println('SALES REPORT')
+  printer.bold(false)
+  printer.println(settings.restaurantName || 'Restaurant')
+  printer.println(range)
+  printer.drawLine()
+
+  printer.alignLeft()
+  printer.println(padRow('Paid Orders:', String(s.paidOrders)))
+  printer.bold(true)
+  printer.println(padRow('Revenue:', money(s.paidRevenue)))
+  printer.bold(false)
+  printer.println(padRow('Avg Order:', money(s.avgOrderValue)))
+  printer.println(padRow('Discounts:', money(s.totalDiscount)))
+  printer.println(padRow('Unpaid:', `${s.pendingOrders} (${money(s.pendingAmount)})`))
+  printer.println(padRow('Cancelled:', String(s.cancelledOrders)))
+  printer.drawLine()
+
+  printer.bold(true)
+  printer.println('TOP ITEMS')
+  printer.bold(false)
+  for (const p of report.popular) {
+    const name = p.variantName ? `${p.productName} (${p.variantName})` : p.productName
+    printer.println(itemRows(name, p.quantity, money(p.revenue)))
+  }
+  printer.drawLine()
+  printer.alignCenter()
+  printer.println(`Printed: ${new Date().toLocaleString()}`)
+  printer.cut()
+  await sendRaw(settings.defaultPrinter, printer.getBuffer())
+}
+
+export async function rawTestPrint(text: string): Promise<void> {
+  const settings = getSettings()
+  const printer = makePrinter()
+  const lines = text.split('\n')
+  for (const line of lines) printer.println(line)
+  printer.cut()
+  await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
 
 export async function testPrintEscpos(printerName: string): Promise<void> {
