@@ -1,4 +1,8 @@
 import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer'
+import { writeFileSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
+import { execFile } from 'child_process'
 import type { OrderWithItems, AppSettings } from '../../shared/types'
 
 interface Names {
@@ -7,13 +11,56 @@ interface Names {
   servedBy?: string
 }
 
-function makePrinter(printerName: string): ThermalPrinter {
+function makePrinter(): ThermalPrinter {
   return new ThermalPrinter({
     type: PrinterTypes.EPSON,
-    interface: `printer:${printerName}`,
+    interface: 'buffer',
     characterSet: CharacterSet.PC437_USA,
-    removeSpecialCharacters: false,
-    options: { timeout: 5000 }
+    removeSpecialCharacters: false
+  })
+}
+
+// Send raw ESC/POS bytes to a Windows printer using the RAW spooler datatype.
+async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
+  const tmpFile = join(tmpdir(), `escpos-${Date.now()}.prn`)
+  writeFileSync(tmpFile, buffer)
+  const psScript = `
+$printer = "${printerName.replace(/"/g, '""')}"
+$path = "${tmpFile.replace(/\\/g, '\\\\')}"
+$bytes = [System.IO.File]::ReadAllBytes($path)
+$src = @"
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+public class RawPrint {
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Ansi)]
+  public struct DOCINFOA { [MarshalAs(UnmanagedType.LPStr)] public string pDocName; [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile; [MarshalAs(UnmanagedType.LPStr)] public string pDataType; }
+  [DllImport("winspool.Drv", EntryPoint="OpenPrinterA", SetLastError=true, CharSet=CharSet.Ansi)] public static extern bool OpenPrinter(string src, out IntPtr hPrinter, IntPtr pd);
+  [DllImport("winspool.Drv", EntryPoint="ClosePrinter", SetLastError=true)] public static extern bool ClosePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", EntryPoint="StartDocPrinterA", SetLastError=true, CharSet=CharSet.Ansi)] public static extern bool StartDocPrinter(IntPtr hPrinter, int level, ref DOCINFOA di);
+  [DllImport("winspool.Drv", EntryPoint="EndDocPrinter", SetLastError=true)] public static extern bool EndDocPrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", EntryPoint="StartPagePrinter", SetLastError=true)] public static extern bool StartPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", EntryPoint="EndPagePrinter", SetLastError=true)] public static extern bool EndPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", EntryPoint="WritePrinter", SetLastError=true)] public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);
+  public static void Send(string name, byte[] bytes) {
+    IntPtr h;
+    if (!OpenPrinter(name, out h, IntPtr.Zero)) throw new Exception("OpenPrinter failed");
+    DOCINFOA di = new DOCINFOA(); di.pDocName = "Receipt"; di.pDataType = "RAW";
+    StartDocPrinter(h, 1, ref di); StartPagePrinter(h);
+    int written; WritePrinter(h, bytes, bytes.Length, out written);
+    EndPagePrinter(h); EndDocPrinter(h); ClosePrinter(h);
+  }
+}
+"@
+Add-Type -TypeDefinition $src -Language CSharp
+[RawPrint]::Send($printer, $bytes)
+`
+  await new Promise<void>((resolve, reject) => {
+    execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], (err) => {
+      try { unlinkSync(tmpFile) } catch { /* ignore */ }
+      if (err) reject(new Error(err.message))
+      else resolve()
+    })
   })
 }
 
@@ -32,7 +79,7 @@ export async function printReceiptEscpos(
   settings: AppSettings,
   names: Names
 ): Promise<void> {
-  const printer = makePrinter(settings.defaultPrinter)
+  const printer = makePrinter()
 
   printer.alignCenter()
   printer.bold(true)
@@ -91,8 +138,7 @@ export async function printReceiptEscpos(
   printer.println('Powered by XIOM - 0310-1617048')
   printer.cut()
 
-  const ok = await printer.execute()
-  if (!ok) throw new Error('Printer execute returned false')
+  await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
 
 export async function printKitchenEscpos(
@@ -101,7 +147,7 @@ export async function printKitchenEscpos(
   names: Names
 ): Promise<void> {
   const printerName = settings.kitchenPrinter || settings.defaultPrinter
-  const printer = makePrinter(printerName)
+  const printer = makePrinter()
 
   printer.alignCenter()
   printer.bold(true)
@@ -126,12 +172,11 @@ export async function printKitchenEscpos(
   printer.setTextNormal()
   printer.cut()
 
-  const ok = await printer.execute()
-  if (!ok) throw new Error('Printer execute returned false')
+  await sendRaw(printerName, printer.getBuffer())
 }
 
 export async function testPrintEscpos(printerName: string): Promise<void> {
-  const printer = makePrinter(printerName)
+  const printer = makePrinter()
   printer.alignCenter()
   printer.bold(true)
   printer.setTextSize(1, 1)
@@ -143,6 +188,5 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
   printer.drawLine()
   printer.println('Powered by XIOM')
   printer.cut()
-  const ok = await printer.execute()
-  if (!ok) throw new Error('Printer execute returned false')
+  await sendRaw(printerName, printer.getBuffer())
 }
