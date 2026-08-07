@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, dialog } from 'electron'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { restaurantTables, waiters, users } from '../db/schema'
@@ -21,12 +21,18 @@ function printHtml(html: string, printerName: string, _pageWidthMm: number): Pro
       win.webContents.print(
         {
           silent: true,
-          deviceName: printerName || undefined
+          deviceName: printerName || undefined,
+          margins: { marginType: 'none' },
+          pageSize: { width: 80000, height: 297000 },
+          scaleFactor: 100
         },
         (success, failureReason) => {
           cleanup()
           if (success) resolve()
-          else reject(new Error(failureReason || 'Print failed'))
+          else {
+            dialog.showErrorBox('Print Failed', `Printer: ${printerName || 'default'}\nReason: ${failureReason || 'unknown'}`)
+            reject(new Error(failureReason || 'Print failed'))
+          }
         }
       )
     })
