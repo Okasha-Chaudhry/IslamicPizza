@@ -61,6 +61,7 @@ export default function NewOrder(): React.JSX.Element {
   const [saving, setSaving] = useState(false)
   const [custSuggestions, setCustSuggestions] = useState<Customer[]>([])
   const [showCustSuggestions, setShowCustSuggestions] = useState(false)
+  const [suggestFor, setSuggestFor] = useState<'phone' | 'name'>('phone')
   const searchRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([])
@@ -151,6 +152,7 @@ export default function NewOrder(): React.JSX.Element {
       const res = await window.api.customers.search(value)
       if (res.ok && res.data && res.data.length > 0) {
         setCustSuggestions(res.data)
+        setSuggestFor('phone')
         setShowCustSuggestions(true)
       } else {
         setShowCustSuggestions(false)
@@ -160,6 +162,21 @@ export default function NewOrder(): React.JSX.Element {
     }
   }
 
+  async function onNameChange(value: string): Promise<void> {
+    cart.setCustomerName(value)
+    if (value.trim().length >= 3) {
+      const res = await window.api.customers.search(value)
+      if (res.ok && res.data && res.data.length > 0) {
+        setCustSuggestions(res.data)
+        setSuggestFor('name')
+        setShowCustSuggestions(true)
+      } else {
+        setShowCustSuggestions(false)
+      }
+    } else {
+      setShowCustSuggestions(false)
+    }
+  }
   function pickCustomer(c: Customer): void {
     cart.setCustomerPhone(c.phone)
     cart.setCustomerName(c.name ?? '')
@@ -368,7 +385,7 @@ export default function NewOrder(): React.JSX.Element {
                 onChange={(e) => void onPhoneChange(e.target.value)}
                 onBlur={() => setTimeout(() => setShowCustSuggestions(false), 150)}
               />
-              {showCustSuggestions && (
+              {showCustSuggestions && suggestFor === 'phone' && (
                 <div className="absolute top-full z-50 mt-1 w-80 rounded-md border bg-popover p-1 shadow-md">
                   {custSuggestions.map((c) => (
                     <button
@@ -391,12 +408,37 @@ export default function NewOrder(): React.JSX.Element {
                 </div>
               )}
             </div>
-            <Input
-              className="h-11 w-40"
-              placeholder="Name (optional)"
-              value={cart.customerName}
-              onChange={(e) => cart.setCustomerName(e.target.value)}
-            />
+            <div className="relative w-40">
+              <Input
+                className="h-11 w-40"
+                placeholder="Name (optional)"
+                value={cart.customerName}
+                onChange={(e) => void onNameChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowCustSuggestions(false), 150)}
+              />
+              {showCustSuggestions && suggestFor === 'name' && (
+                <div className="absolute top-full z-50 mt-1 w-80 rounded-md border bg-popover p-1 shadow-md">
+                  {custSuggestions.map((c) => (
+                    <button
+                      key={c.id}
+                      className="flex w-full flex-col rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        pickCustomer(c)
+                      }}
+                    >
+                      <span className="font-medium">
+                        {c.name || c.phone}
+                        {c.name ? ` - ${c.phone}` : ''}
+                      </span>
+                      {c.address && (
+                        <span className="truncate text-xs text-muted-foreground">{c.address}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Input
               className="h-11 flex-1"
               placeholder="Delivery Address"

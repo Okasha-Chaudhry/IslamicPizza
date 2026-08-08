@@ -3,6 +3,8 @@ import { writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { execFile } from 'child_process'
+import { app } from 'electron'
+import { existsSync } from 'fs'
 import type { OrderWithItems, AppSettings } from '../../shared/types'
 import { getSettings } from '../services/settings.service'
 
@@ -15,6 +17,12 @@ interface Names {
 const LINE_WIDTH = 48
 const QTY_W = 5
 const AMT_W = 10
+
+function resourcePath(file: string): string {
+  const devPath = join(process.cwd(), 'resources', file)
+  if (existsSync(devPath)) return devPath
+  return join(process.resourcesPath, 'resources', file)
+}
 
 function makePrinter(): ThermalPrinter {
   return new ThermalPrinter({
@@ -113,6 +121,13 @@ export async function printReceiptEscpos(
   const printer = makePrinter()
 
   printer.alignCenter()
+  if (settings.receiptLogo) {
+    try {
+      await printer.printImage(settings.receiptLogo)
+    } catch {
+      // logo failed, skip
+    }
+  }
   printer.bold(true)
   printer.setTextSize(1, 1)
   printer.println(settings.restaurantName || 'Restaurant')
@@ -161,7 +176,12 @@ export async function printReceiptEscpos(
   printer.alignCenter()
   printer.drawLine()
   if (settings.receiptFooter) printer.println(settings.receiptFooter)
-  printer.println('Powered by XIOM - 0310-1617048')
+  try {
+    await printer.printImage(resourcePath('xiom-logo-print.png'))
+  } catch {
+    printer.println('Powered by XIOM')
+  }
+  printer.println('0310-1617048')
   printer.cut()
 
   await sendRaw(settings.defaultPrinter, printer.getBuffer())

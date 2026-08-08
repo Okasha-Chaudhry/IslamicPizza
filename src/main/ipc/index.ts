@@ -73,9 +73,9 @@ export function registerIpcHandlers(): void {
       const sharp = require('sharp')
       await sharp(result.filePaths[0])
         .flatten({ background: '#ffffff' })
-        .resize(384, 384, { fit: 'inside', withoutEnlargement: false })
+        .resize(360, 360, { fit: 'inside', withoutEnlargement: false })
         .greyscale()
-        .normalise()
+        .threshold(180)
         .png()
         .toFile(destPath)
       const key = kind === 'logo' ? 'receiptLogo' : 'paymentQr'
