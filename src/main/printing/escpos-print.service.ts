@@ -114,9 +114,14 @@ export async function printReceiptEscpos(
 
   printer.alignCenter()
   printer.bold(true)
+  printer.setTextSize(1, 1)
   printer.println(settings.restaurantName || 'Restaurant')
-  printer.bold(false)
-  if (settings.receiptHeader) printer.println(settings.receiptHeader)
+  printer.setTextNormal()
+  if (settings.receiptHeader) {
+    printer.bold(true)
+    printer.println(settings.receiptHeader)
+    printer.bold(false)
+  }
   if (settings.address) printer.println(settings.address)
   if (settings.phone) printer.println(settings.phone)
   printer.drawLine()
@@ -133,7 +138,9 @@ export async function printReceiptEscpos(
   if (order.customerAddress) printer.println(`Address: ${order.customerAddress}`)
   printer.drawLine()
 
+  printer.bold(true)
   printer.println(itemHeader())
+  printer.bold(false)
   printer.drawLine()
   for (const item of order.items) {
     const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
@@ -219,8 +226,8 @@ export async function printReportEscpos(
   printer.alignCenter()
   printer.bold(true)
   printer.println('SALES REPORT')
-  printer.bold(false)
   printer.println(settings.restaurantName || 'Restaurant')
+  printer.bold(false)
   printer.println(range)
   printer.drawLine()
 
@@ -237,8 +244,8 @@ export async function printReportEscpos(
 
   printer.bold(true)
   printer.println('TOP ITEMS')
-  printer.bold(false)
   printer.println(itemHeader())
+  printer.bold(false)
   printer.drawLine()
   for (const p of report.popular) {
     const name = p.variantName ? p.productName + ' (' + p.variantName + ')' : p.productName
