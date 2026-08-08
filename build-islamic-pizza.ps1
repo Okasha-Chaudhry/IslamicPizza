@@ -10,7 +10,7 @@ $m = $m.Replace('"name": "restaurant-pos"', '"name": "islamic-pizza-pos"')
 $m = (Get-Content .\electron-builder.yml -Raw -Encoding UTF8) -replace "`r`n","`n"
 $m = $m.Replace('appId: com.okasha.restaurantpos', 'appId: com.okasha.islamicpizzapos')
 $m = $m.Replace('productName: Restaurant POS', 'productName: Islamic Pizza POS')
-$m = $m.Replace('artifactName: restaurant-pos-1.1-setup.', 'artifactName: islamic-pizza-pos-1.1-setup.')
+$m = $m.Replace('artifactName: restaurant-pos-1.1-setup.', 'artifactName: islamic-pizza-pos-1.1.1-setup.')
 [System.IO.File]::WriteAllText("$PSScriptRoot\electron-builder.yml", $m)
 
 $m = (Get-Content .\src\renderer\src\pages\ActivationScreen.tsx -Raw -Encoding UTF8) -replace "`r`n","`n"
@@ -37,4 +37,4 @@ try {
   git status
 }
 Write-Host "== DONE ==" -ForegroundColor Green
-Get-ChildItem .\dist\islamic-pizza-pos-1.1-setup.exe | Select-Object Name, LastWriteTime
+Get-ChildItem .\dist\islamic-pizza-pos-1.1.1-setup.exe | Select-Object Name, LastWriteTime
