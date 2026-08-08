@@ -1,9 +1,9 @@
-import { BrowserWindow, dialog } from 'electron'
 import {
   printReceiptEscpos,
   printKitchenEscpos,
   testPrintEscpos,
-  printReportEscpos
+  printReportEscpos,
+  rawTestPrint as rawTestPrintEscpos
 } from './escpos-print.service'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
@@ -11,47 +11,11 @@ import { restaurantTables, waiters, users } from '../db/schema'
 import { getSettings } from '../services/settings.service'
 import type { OrderWithItems } from '../../shared/types'
 
-function printHtml(html: string, printerName: string, _pageWidthMm: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const win = new BrowserWindow({
-      show: false,
-      webPreferences: { sandbox: true }
-    })
-
-    const cleanup = (): void => {
-      if (!win.isDestroyed()) win.destroy()
-    }
-
-    win.webContents.on('did-finish-load', () => {
-      win.webContents.print(
-        {
-          silent: true,
-          deviceName: printerName || undefined,
-          margins: { marginType: 'none' },
-          pageSize: { width: 80000, height: 297000 },
-          scaleFactor: 100
-        },
-        (success, failureReason) => {
-          cleanup()
-          if (success) resolve()
-          else {
-            dialog.showErrorBox('Print Failed', `Printer: ${printerName || 'default'}\nReason: ${failureReason || 'unknown'}`)
-            reject(new Error(failureReason || 'Print failed'))
-          }
-        }
-      )
-    })
-
-    win.webContents.on('did-fail-load', (_e, _code, desc) => {
-      cleanup()
-      reject(new Error(`Failed to render receipt: ${desc}`))
-    })
-
-    void win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-  })
-}
-
-function resolveNames(order: OrderWithItems): { tableName?: string; waiterName?: string; servedBy?: string } {
+function resolveNames(order: OrderWithItems): {
+  tableName?: string
+  waiterName?: string
+  servedBy?: string
+} {
   const db = getDb()
   const out: { tableName?: string; waiterName?: string; servedBy?: string } = {}
   if (order.userId != null) {
@@ -100,4 +64,7 @@ export async function printReceipt(order: OrderWithItems): Promise<void> {
 export async function printKitchenSlip(order: OrderWithItems): Promise<void> {
   const settings = getSettings()
   await printKitchenEscpos(order, settings, resolveNames(order))
+}
+export async function rawTestPrint(text: string): Promise<void> {
+  await rawTestPrintEscpos(text)
 }

@@ -12,6 +12,10 @@ interface Names {
   servedBy?: string
 }
 
+const LINE_WIDTH = 48
+const QTY_W = 5
+const AMT_W = 10
+
 function makePrinter(): ThermalPrinter {
   return new ThermalPrinter({
     type: PrinterTypes.EPSON,
@@ -21,8 +25,8 @@ function makePrinter(): ThermalPrinter {
   })
 }
 
-// Send raw ESC/POS bytes to a Windows printer using the RAW spooler datatype.
 async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
+  if (!printerName) throw new Error('No printer selected in Settings')
   const tmpFile = join(tmpdir(), `escpos-${Date.now()}.prn`)
   writeFileSync(tmpFile, buffer)
   const psScript = `
@@ -45,7 +49,7 @@ public class RawPrint {
   [DllImport("winspool.Drv", EntryPoint="WritePrinter", SetLastError=true)] public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);
   public static void Send(string name, byte[] bytes) {
     IntPtr h;
-    if (!OpenPrinter(name, out h, IntPtr.Zero)) throw new Exception("OpenPrinter failed");
+    if (!OpenPrinter(name, out h, IntPtr.Zero)) throw new Exception("OpenPrinter failed - check printer name");
     DOCINFOA di = new DOCINFOA(); di.pDocName = "Receipt"; di.pDataType = "RAW";
     StartDocPrinter(h, 1, ref di); StartPagePrinter(h);
     int written; WritePrinter(h, bytes, bytes.Length, out written);
@@ -65,25 +69,29 @@ Add-Type -TypeDefinition $src -Language CSharp
   })
 }
 
-const LINE_WIDTH = 48
+function money(n: number): string {
+  return `Rs ${n}`
+}
 
+// Two-column row: label left, value right-aligned to full width.
 function padRow(left: string, right: string): string {
   const space = Math.max(1, LINE_WIDTH - left.length - right.length)
   return left + ' '.repeat(space) + right
 }
 
-function itemRows(name: string, qty: number, amount: string): string {
-  const qtyAmt = `${qty}   ${amount}`
-  const nameWidth = LINE_WIDTH - qtyAmt.length - 1
+// Item line: name (left, wraps), qty (center col), amount (right col).
+function itemLine(name: string, qty: number, amount: string): string {
+  const nameW = LINE_WIDTH - QTY_W - AMT_W
+  const qtyStr = String(qty).padStart(Math.floor((QTY_W + String(qty).length) / 2)).padEnd(QTY_W)
+  const amtStr = amount.padStart(AMT_W)
   const lines: string[] = []
   let remaining = name
   let first = true
   while (remaining.length > 0) {
-    const chunk = remaining.slice(0, first ? nameWidth : LINE_WIDTH)
+    const chunk = remaining.slice(0, nameW)
     remaining = remaining.slice(chunk.length)
     if (first) {
-      const space = Math.max(1, LINE_WIDTH - chunk.length - qtyAmt.length)
-      lines.push(chunk + ' '.repeat(space) + qtyAmt)
+      lines.push(chunk.padEnd(nameW) + qtyStr + amtStr)
       first = false
     } else {
       lines.push(chunk)
@@ -92,14 +100,9 @@ function itemRows(name: string, qty: number, amount: string): string {
   return lines.join('\n')
 }
 
-function money(n: number): string {
-  return `Rs ${n}`
-}
-
-// 48 chars per line at Font A on 80mm. Left text + right-aligned amount.
-function row(left: string, right: string, width = 48): string {
-  const space = Math.max(1, width - left.length - right.length)
-  return left + ' '.repeat(space) + right
+function itemHeader(): string {
+  const nameW = LINE_WIDTH - QTY_W - AMT_W
+  return 'Item'.padEnd(nameW) + 'Qty'.padStart(Math.floor((QTY_W + 3) / 2)).padEnd(QTY_W) + 'Amount'.padStart(AMT_W)
 }
 
 export async function printReceiptEscpos(
@@ -111,9 +114,7 @@ export async function printReceiptEscpos(
 
   printer.alignCenter()
   printer.bold(true)
-  printer.setTextSize(1, 1)
   printer.println(settings.restaurantName || 'Restaurant')
-  printer.setTextNormal()
   printer.bold(false)
   if (settings.receiptHeader) printer.println(settings.receiptHeader)
   if (settings.address) printer.println(settings.address)
@@ -132,22 +133,21 @@ export async function printReceiptEscpos(
   if (order.customerAddress) printer.println(`Address: ${order.customerAddress}`)
   printer.drawLine()
 
-  printer.println(padRow('Item', 'Qty  Amount'))
+  printer.println(itemHeader())
   printer.drawLine()
   for (const item of order.items) {
     const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
-    printer.println(itemRows(name, item.quantity, money(item.lineTotal)))
+    printer.println(itemLine(name, item.quantity, money(item.lineTotal)))
   }
   printer.drawLine()
 
-  printer.alignRight()
   if (order.discount > 0) {
-    printer.println(row('Subtotal:', money(order.subtotal)))
-    printer.println(row(`Discount (${order.discountPercent}%):`, `-${money(order.discount)}`))
+    printer.println(padRow('Subtotal:', money(order.subtotal)))
+    printer.println(padRow(`Discount (${order.discountPercent}%):`, `-${money(order.discount)}`))
   }
   printer.bold(true)
   printer.setTextSize(1, 1)
-  printer.println(`TOTAL: ${money(order.total)}`)
+  printer.println(padRow('TOTAL:', money(order.total)))
   printer.setTextNormal()
   printer.bold(false)
 
@@ -172,7 +172,8 @@ export async function printKitchenEscpos(
   printer.bold(true)
   printer.setTextSize(1, 1)
   printer.println('KITCHEN')
-  printer.setTextSize(0, 0)
+  printer.setTextNormal()
+  printer.bold(true)
   const typeLabel =
     order.orderType === 'dine_in' ? 'DINE IN' : order.orderType === 'delivery' ? 'DELIVERY' : 'TAKE AWAY'
   printer.println(`${typeLabel}  #${order.orderNumber}`)
@@ -182,13 +183,13 @@ export async function printKitchenEscpos(
   printer.drawLine()
 
   printer.alignLeft()
-  printer.setTextSize(1, 1)
   for (const item of order.items) {
-    const name = item.variantName ? `${item.productName} (${item.variantName})` : item.productName
+    const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
+    printer.bold(true)
     printer.println(`${item.quantity} x ${name}`)
-    if (item.note) printer.println(`   * ${item.note}`)
+    printer.bold(false)
+    if (item.note) printer.println(`    * ${item.note}`)
   }
-  printer.setTextNormal()
   printer.cut()
 
   await sendRaw(printerName, printer.getBuffer())
@@ -237,23 +238,18 @@ export async function printReportEscpos(
   printer.bold(true)
   printer.println('TOP ITEMS')
   printer.bold(false)
+  printer.println(itemHeader())
+  printer.drawLine()
   for (const p of report.popular) {
-    const name = p.variantName ? `${p.productName} (${p.variantName})` : p.productName
-    printer.println(itemRows(name, p.quantity, money(p.revenue)))
+    const name = p.variantName ? p.productName + ' (' + p.variantName + ')' : p.productName
+    printer.println(itemLine(name, p.quantity, money(p.revenue)))
   }
   printer.drawLine()
+
   printer.alignCenter()
   printer.println(`Printed: ${new Date().toLocaleString()}`)
   printer.cut()
-  await sendRaw(settings.defaultPrinter, printer.getBuffer())
-}
 
-export async function rawTestPrint(text: string): Promise<void> {
-  const settings = getSettings()
-  const printer = makePrinter()
-  const lines = text.split('\n')
-  for (const line of lines) printer.println(line)
-  printer.cut()
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
 
@@ -261,9 +257,7 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
   const printer = makePrinter()
   printer.alignCenter()
   printer.bold(true)
-  printer.setTextSize(1, 1)
-  printer.println('TEST PRINT')
-  printer.setTextNormal()
+  printer.println('PRINTER TEST')
   printer.bold(false)
   printer.println('ESC/POS OK')
   printer.println(new Date().toLocaleString())
@@ -271,4 +265,12 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
   printer.println('Powered by XIOM')
   printer.cut()
   await sendRaw(printerName, printer.getBuffer())
+}
+
+export async function rawTestPrint(text: string): Promise<void> {
+  const settings = getSettings()
+  const printer = makePrinter()
+  for (const line of text.split('\n')) printer.println(line)
+  printer.cut()
+  await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }

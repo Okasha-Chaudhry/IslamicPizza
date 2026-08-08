@@ -274,10 +274,10 @@ export default function NewOrder(): React.JSX.Element {
     let printNote = ''
     if (action === 'paid_print' || action === 'print_receipt') {
       const pr = await window.api.print.receipt(order)
-      printNote = pr.ok ? ' - receipt printed' : ` - PRINT FAILED: ${pr.error}`
+      printNote = pr.ok ? ' - receipt printed' : ' - (printer issue - order saved)'
     } else if (action === 'kitchen_slip') {
       const pr = await window.api.print.kitchen(order)
-      printNote = pr.ok ? ' - kitchen slip printed' : ` - PRINT FAILED: ${pr.error}`
+      printNote = pr.ok ? ' - kitchen slip printed' : ' - (printer issue - order saved)'
     }
     setSavedMsg(`Order ${order.orderNumber} saved (${order.status.replace('_', ' ')}) - Rs ${order.total}${printNote}`)
     cart.clear()
