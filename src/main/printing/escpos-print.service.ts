@@ -175,7 +175,7 @@ export async function printReceiptEscpos(
 
   if (order.discount > 0) {
     printer.println(padRow('Subtotal:', money(order.subtotal), L))
-    printer.println(padRow(`Discount (${order.discountPercent}%):`, `-${money(order.discount)}`))
+    printer.println(padRow('Discount:', '-' + money(order.discount), L))
   }
   printer.bold(true)
   printer.setTextSize(1, 1)
@@ -273,7 +273,7 @@ export async function printReportEscpos(
   printer.bold(false)
   printer.println(padRow('Avg Order:', money(s.avgOrderValue), L))
   printer.println(padRow('Discounts:', money(s.totalDiscount), L))
-  printer.println(padRow('Unpaid:', `${s.pendingOrders} (${money(s.pendingAmount)})`))
+  printer.println(padRow('Unpaid:', s.pendingOrders + ' (' + money(s.pendingAmount) + ')', L))
   printer.println(padRow('Cancelled:', String(s.cancelledOrders), L))
   printer.drawLine()
 
