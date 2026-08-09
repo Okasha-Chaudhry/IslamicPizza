@@ -215,7 +215,7 @@ export default function NewOrder(): React.JSX.Element {
   }
 
   const subtotal = cartSubtotal(cart.lines)
-  const discountAmount = Math.round((subtotal * cart.discountPercent) / 100)
+  const discountAmount = Math.min(cart.discountAmount, subtotal)
   const total = subtotal - discountAmount
 
   async function updateOrder(): Promise<void> {
@@ -229,7 +229,7 @@ export default function NewOrder(): React.JSX.Element {
     setSaving(true)
     const res = await window.api.orders.updateItems({
       orderId: cart.editingOrderId,
-      discountPercent: cart.discountPercent,
+      discountAmount: cart.discountAmount,
       items: cart.lines.map((l) => ({
         productId: l.productId,
         variantId: l.variantId,
@@ -268,7 +268,7 @@ export default function NewOrder(): React.JSX.Element {
       customerName: cart.customerName,
       customerPhone: cart.customerPhone,
       customerAddress: cart.customerAddress,
-      discountPercent: cart.discountPercent,
+      discountAmount: cart.discountAmount,
       markPaid,
       items: cart.lines.map((l) => ({
         productId: l.productId,
@@ -610,16 +610,16 @@ export default function NewOrder(): React.JSX.Element {
           </div>
           {isAdmin && (
           <div className="flex items-center justify-between gap-2 text-sm">
-            <span>Discount %</span>
+            <span>Discount Rs</span>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 min="0"
                 max="100"
                 className="h-8 w-16 text-right"
-                value={cart.discountPercent === 0 ? '' : cart.discountPercent}
+                value={cart.discountAmount === 0 ? '' : cart.discountAmount}
                 placeholder="0"
-                onChange={(e) => cart.setDiscountPercent(Number(e.target.value))}
+                onChange={(e) => cart.setDiscountAmount(Number(e.target.value))}
               />
               <span className="w-16 text-right text-muted-foreground">- Rs {discountAmount}</span>
             </div>

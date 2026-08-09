@@ -21,7 +21,7 @@ interface CartState {
   customerName: string
   customerPhone: string
   customerAddress: string
-  discountPercent: number
+  discountAmount: number
   lines: CartLine[]
   startEditing: (orderId: number, orderNumber: string) => void
   stopEditing: () => void
@@ -31,7 +31,7 @@ interface CartState {
   setCustomerName: (v: string) => void
   setCustomerPhone: (v: string) => void
   setCustomerAddress: (v: string) => void
-  setDiscountPercent: (v: number) => void
+  setDiscountAmount: (v: number) => void
   addLine: (line: Omit<CartLine, 'key' | 'quantity' | 'note'>) => void
   increment: (key: string) => void
   decrement: (key: string) => void
@@ -49,7 +49,7 @@ export const useCartStore = create<CartState>((set) => ({
   customerName: '',
   customerPhone: '',
   customerAddress: '',
-  discountPercent: 0,
+  discountAmount: 0,
   lines: [],
 
   startEditing: (orderId, orderNumber) => set({ editingOrderId: orderId, editingOrderNumber: orderNumber }),
@@ -60,8 +60,7 @@ export const useCartStore = create<CartState>((set) => ({
   setCustomerName: (v) => set({ customerName: v }),
   setCustomerPhone: (v) => set({ customerPhone: v }),
   setCustomerAddress: (v) => set({ customerAddress: v }),
-  setDiscountPercent: (v) =>
-    set({ discountPercent: Math.max(0, Math.min(100, Math.round(v) || 0)) }),
+  setDiscountAmount: (v) => set({ discountAmount: Math.max(0, Math.round(v) || 0) }),
 
   addLine: (line) =>
     set((state) => {
@@ -106,7 +105,7 @@ export const useCartStore = create<CartState>((set) => ({
       customerName: '',
       customerPhone: '',
       customerAddress: '',
-      discountPercent: 0,
+      discountAmount: 0,
       lines: []
     })
 }))

@@ -23,10 +23,7 @@ function nextOrderNumber(): string {
 export function createOrder(input: CreateOrderInput): OrderWithItems {
   if (!input.items || input.items.length === 0) throw new Error('Order has no items')
   if (input.orderType === 'dine_in' && !input.tableId) throw new Error('Select a table for dine-in')
-  const discountPercent = Math.round(input.discountPercent ?? 0)
-  if (discountPercent < 0 || discountPercent > 100) {
-    throw new Error('Discount must be between 0 and 100')
-  }
+  const discountInput = Math.max(0, Math.round(input.discountAmount ?? 0))
 
   const db = getDb()
   const sqlite = getSqlite()
@@ -62,7 +59,8 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
     })
 
     const subtotal = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0)
-    const discount = Math.round((subtotal * discountPercent) / 100)
+    const discount = Math.min(discountInput, subtotal)
+    const discountPercent = subtotal > 0 ? Math.round((discount / subtotal) * 100) : 0
     const total = subtotal - discount
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
 
@@ -191,15 +189,12 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
 
 export function updateOrderItems(input: {
   orderId: number
-  discountPercent: number
+  discountAmount: number
   note?: string
   items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
 }): OrderWithItems {
   if (!input.items || input.items.length === 0) throw new Error('Order has no items')
-  const discountPercent = Math.round(input.discountPercent ?? 0)
-  if (discountPercent < 0 || discountPercent > 100) {
-    throw new Error('Discount must be between 0 and 100')
-  }
+  const discountInput = Math.max(0, Math.round(input.discountAmount ?? 0))
 
   const db = getDb()
   const sqlite = getSqlite()
@@ -253,7 +248,8 @@ export function updateOrderItems(input: {
     })
 
     const subtotal = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0)
-    const discount = Math.round((subtotal * discountPercent) / 100)
+    const discount = Math.min(discountInput, subtotal)
+    const discountPercent = subtotal > 0 ? Math.round((discount / subtotal) * 100) : 0
     const total = subtotal - discount
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
 

@@ -198,11 +198,12 @@ export async function printKitchenEscpos(
   printer.bold(true)
   printer.setTextSize(1, 1)
   printer.println('KITCHEN')
-  printer.setTextNormal()
-  printer.bold(true)
   const typeLabel =
     order.orderType === 'dine_in' ? 'DINE IN' : order.orderType === 'delivery' ? 'DELIVERY' : 'TAKE AWAY'
+  printer.bold(true)
+  printer.setTextSize(1, 1)
   printer.println(`${typeLabel}  #${order.orderNumber}`)
+  printer.setTextNormal()
   printer.bold(false)
   printer.println(new Date(order.createdAt).toLocaleString())
   if (names.tableName) printer.println(`Table: ${names.tableName}`)
@@ -212,7 +213,9 @@ export async function printKitchenEscpos(
   for (const item of order.items) {
     const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
     printer.bold(true)
+    printer.setTextSize(1, 1)
     printer.println(`${item.quantity} x ${name}`)
+    printer.setTextNormal()
     printer.bold(false)
     if (item.note) printer.println(`    * ${item.note}`)
   }

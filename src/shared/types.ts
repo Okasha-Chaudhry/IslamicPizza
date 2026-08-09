@@ -103,7 +103,7 @@ export interface CreateOrderInput {
   waiterId?: number | null
   customerPhone?: string
   customerAddress?: string
-  discountPercent: number
+  discountAmount: number
   note?: string
   markPaid: boolean
   items: OrderItemInput[]
