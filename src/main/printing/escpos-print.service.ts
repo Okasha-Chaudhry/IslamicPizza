@@ -20,6 +20,8 @@ const AMT_W = 10
 function resourcePath(file: string): string {
   const devPath = join(process.cwd(), 'resources', file)
   if (existsSync(devPath)) return devPath
+  const unpacked = join(process.resourcesPath, 'app.asar.unpacked', 'resources', file)
+  if (existsSync(unpacked)) return unpacked
   return join(process.resourcesPath, 'resources', file)
 }
 
