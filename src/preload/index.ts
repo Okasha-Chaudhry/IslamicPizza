@@ -136,7 +136,7 @@ const api = {
       ipcRenderer.invoke('orders:updateStatus', id, status),
     updateItems: (input: {
       orderId: number
-      discountPercent: number
+      discountAmount: number
       note?: string
       items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
     }): Promise<ApiResult<OrderWithItems>> => ipcRenderer.invoke('orders:updateItems', input)

@@ -207,7 +207,7 @@ export default function Orders(): React.JSX.Element {
                 </div>
                 {selected.discount > 0 && (
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Discount ({selected.discountPercent}%)</span>
+                    <span>Discount</span>
                     <span>- Rs {selected.discount}</span>
                   </div>
                 )}
@@ -245,7 +245,7 @@ export default function Orders(): React.JSX.Element {
                     cart.setCustomerName('')
                     if (selected.customerPhone) cart.setCustomerPhone(selected.customerPhone)
                     if (selected.customerAddress) cart.setCustomerAddress(selected.customerAddress)
-                    cart.setDiscountPercent(selected.discountPercent)
+                    cart.setDiscountAmount(selected.discount)
                     for (const item of selected.items) {
                       for (let q = 0; q < item.quantity; q++) {
                         cart.addLine({
