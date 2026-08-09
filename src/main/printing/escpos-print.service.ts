@@ -13,9 +13,16 @@ interface Names {
   servedBy?: string
 }
 
-const LINE_WIDTH = 48
-const QTY_W = 5
-const AMT_W = 10
+interface Layout {
+  width: number
+  qtyW: number
+  amtW: number
+}
+
+function layout(receiptWidth: string): Layout {
+  if (receiptWidth === '58') return { width: 32, qtyW: 4, amtW: 8 }
+  return { width: 48, qtyW: 5, amtW: 10 }
+}
 
 function resourcePath(file: string): string {
   const devPath = join(process.cwd(), 'resources', file)
@@ -25,12 +32,13 @@ function resourcePath(file: string): string {
   return join(process.resourcesPath, 'resources', file)
 }
 
-function makePrinter(): ThermalPrinter {
+function makePrinter(width: number): ThermalPrinter {
   return new ThermalPrinter({
     type: PrinterTypes.EPSON,
     interface: 'buffer',
     characterSet: CharacterSet.PC437_USA,
-    removeSpecialCharacters: false
+    removeSpecialCharacters: false,
+    width
   })
 }
 
@@ -83,16 +91,16 @@ function money(n: number): string {
 }
 
 // Two-column row: label left, value right-aligned to full width.
-function padRow(left: string, right: string): string {
-  const space = Math.max(1, LINE_WIDTH - left.length - right.length)
+function padRow(left: string, right: string, L: Layout): string {
+  const space = Math.max(1, L.width - left.length - right.length)
   return left + ' '.repeat(space) + right
 }
 
 // Item line: name (left, wraps), qty (center col), amount (right col).
-function itemLine(name: string, qty: number, amount: string): string {
-  const nameW = LINE_WIDTH - QTY_W - AMT_W
-  const qtyStr = String(qty).padStart(Math.floor((QTY_W + String(qty).length) / 2)).padEnd(QTY_W)
-  const amtStr = amount.padStart(AMT_W)
+function itemLine(name: string, qty: number, amount: string, L: Layout): string {
+  const nameW = L.width - L.qtyW - L.amtW
+  const qtyStr = String(qty).padStart(Math.floor((L.qtyW + String(qty).length) / 2)).padEnd(L.qtyW)
+  const amtStr = amount.padStart(L.amtW)
   const lines: string[] = []
   let remaining = name
   let first = true
@@ -109,9 +117,9 @@ function itemLine(name: string, qty: number, amount: string): string {
   return lines.join('\n')
 }
 
-function itemHeader(): string {
-  const nameW = LINE_WIDTH - QTY_W - AMT_W
-  return 'Item'.padEnd(nameW) + 'Qty'.padStart(Math.floor((QTY_W + 3) / 2)).padEnd(QTY_W) + 'Amount'.padStart(AMT_W)
+function itemHeader(L: Layout): string {
+  const nameW = L.width - L.qtyW - L.amtW
+  return 'Item'.padEnd(nameW) + 'Qty'.padStart(Math.floor((L.qtyW + 3) / 2)).padEnd(L.qtyW) + 'Amount'.padStart(L.amtW)
 }
 
 export async function printReceiptEscpos(
@@ -119,7 +127,8 @@ export async function printReceiptEscpos(
   settings: AppSettings,
   names: Names
 ): Promise<void> {
-  const printer = makePrinter()
+  const L = layout(settings.receiptWidth)
+  const printer = makePrinter(L.width)
 
   printer.alignCenter()
   if (settings.receiptLogo) {
@@ -155,22 +164,22 @@ export async function printReceiptEscpos(
   printer.drawLine()
 
   printer.bold(true)
-  printer.println(itemHeader())
+  printer.println(itemHeader(L))
   printer.bold(false)
   printer.drawLine()
   for (const item of order.items) {
     const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
-    printer.println(itemLine(name, item.quantity, money(item.lineTotal)))
+    printer.println(itemLine(name, item.quantity, money(item.lineTotal), L))
   }
   printer.drawLine()
 
   if (order.discount > 0) {
-    printer.println(padRow('Subtotal:', money(order.subtotal)))
+    printer.println(padRow('Subtotal:', money(order.subtotal), L))
     printer.println(padRow(`Discount (${order.discountPercent}%):`, `-${money(order.discount)}`))
   }
   printer.bold(true)
   printer.setTextSize(1, 1)
-  printer.println(padRow('TOTAL:', money(order.total)))
+  printer.println(padRow('TOTAL:', money(order.total), L))
   printer.setTextNormal()
   printer.bold(false)
 
@@ -194,7 +203,8 @@ export async function printKitchenEscpos(
   names: Names
 ): Promise<void> {
   const printerName = settings.kitchenPrinter || settings.defaultPrinter
-  const printer = makePrinter()
+  const L = layout(settings.receiptWidth)
+  const printer = makePrinter(L.width)
 
   printer.alignCenter()
   printer.bold(true)
@@ -243,7 +253,8 @@ export async function printReportEscpos(
   },
   settings: AppSettings
 ): Promise<void> {
-  const printer = makePrinter()
+  const L = layout(settings.receiptWidth)
+  const printer = makePrinter(L.width)
   const s = report.summary
   const range = report.from === report.to ? report.from : `${report.from} to ${report.to}`
 
@@ -256,24 +267,24 @@ export async function printReportEscpos(
   printer.drawLine()
 
   printer.alignLeft()
-  printer.println(padRow('Paid Orders:', String(s.paidOrders)))
+  printer.println(padRow('Paid Orders:', String(s.paidOrders), L))
   printer.bold(true)
-  printer.println(padRow('Revenue:', money(s.paidRevenue)))
+  printer.println(padRow('Revenue:', money(s.paidRevenue), L))
   printer.bold(false)
-  printer.println(padRow('Avg Order:', money(s.avgOrderValue)))
-  printer.println(padRow('Discounts:', money(s.totalDiscount)))
+  printer.println(padRow('Avg Order:', money(s.avgOrderValue), L))
+  printer.println(padRow('Discounts:', money(s.totalDiscount), L))
   printer.println(padRow('Unpaid:', `${s.pendingOrders} (${money(s.pendingAmount)})`))
-  printer.println(padRow('Cancelled:', String(s.cancelledOrders)))
+  printer.println(padRow('Cancelled:', String(s.cancelledOrders), L))
   printer.drawLine()
 
   printer.bold(true)
   printer.println('TOP ITEMS')
-  printer.println(itemHeader())
+  printer.println(itemHeader(L))
   printer.bold(false)
   printer.drawLine()
   for (const p of report.popular) {
     const name = p.variantName ? p.productName + ' (' + p.variantName + ')' : p.productName
-    printer.println(itemLine(name, p.quantity, money(p.revenue)))
+    printer.println(itemLine(name, p.quantity, money(p.revenue), L))
   }
   printer.drawLine()
 
@@ -285,7 +296,9 @@ export async function printReportEscpos(
 }
 
 export async function testPrintEscpos(printerName: string): Promise<void> {
-  const printer = makePrinter()
+  const settings = getSettings()
+  const L = layout(settings.receiptWidth)
+  const printer = makePrinter(L.width)
   printer.alignCenter()
   printer.bold(true)
   printer.println('PRINTER TEST')
@@ -300,7 +313,8 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
 
 export async function rawTestPrint(text: string): Promise<void> {
   const settings = getSettings()
-  const printer = makePrinter()
+  const L = layout(settings.receiptWidth)
+  const printer = makePrinter(L.width)
   for (const line of text.split('\n')) printer.println(line)
   printer.cut()
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
