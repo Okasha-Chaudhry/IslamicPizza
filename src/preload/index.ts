@@ -6,6 +6,7 @@ import type {
   CreateCategoryInput,
   UpdateCategoryInput,
   NamedEntity,
+  OrderType,
   CreateNamedEntityInput,
   UpdateNamedEntityInput,
   Product,
@@ -137,6 +138,12 @@ const api = {
     updateItems: (input: {
       orderId: number
       discountAmount: number
+      orderType?: OrderType
+      tableId?: number | null
+      waiterId?: number | null
+      customerPhone?: string | null
+      customerAddress?: string | null
+      deliveryCharge?: number
       note?: string
       items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
     }): Promise<ApiResult<OrderWithItems>> => ipcRenderer.invoke('orders:updateItems', input)

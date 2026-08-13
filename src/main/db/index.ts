@@ -136,6 +136,10 @@ const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
   CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+  `,
+  // v5 - delivery charge on orders
+  `
+  ALTER TABLE orders ADD COLUMN delivery_charge INTEGER NOT NULL DEFAULT 0;
   `
 ]
 

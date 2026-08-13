@@ -62,6 +62,7 @@ export const orders = sqliteTable('orders', {
   subtotal: integer('subtotal').notNull().default(0),
   discountPercent: integer('discount_percent').notNull().default(0),
   discount: integer('discount').notNull().default(0),
+  deliveryCharge: integer('delivery_charge').notNull().default(0),
   taxAmount: integer('tax_amount').notNull().default(0),
   total: integer('total').notNull().default(0),
   note: text('note'),

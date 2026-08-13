@@ -104,6 +104,7 @@ export interface CreateOrderInput {
   customerPhone?: string
   customerAddress?: string
   discountAmount: number
+  deliveryCharge: number
   note?: string
   markPaid: boolean
   items: OrderItemInput[]
@@ -133,6 +134,7 @@ export interface Order {
   subtotal: number
   discountPercent: number
   discount: number
+  deliveryCharge: number
   taxAmount: number
   total: number
   note: string | null

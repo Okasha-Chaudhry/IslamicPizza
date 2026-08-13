@@ -35,7 +35,7 @@ export default function ActivationScreen({ status, onActivated }: Props): React.
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-background">
+    <div className="relative flex h-screen items-center justify-center bg-background">
       <div className="w-96 space-y-6">
         <div className="text-center">
           <img src={logo} alt="" className="mx-auto mb-3 size-24" />
@@ -76,7 +76,7 @@ export default function ActivationScreen({ status, onActivated }: Props): React.
           Activate
         </Button>
       </div>
-      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1 opacity-70">
+      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1 opacity-80">
         <img src={xiomLogo} alt="" className="h-14 dark:invert" />
         <p className="text-xs text-muted-foreground">Software by XIOM - 0310-1617048</p>
       </div>

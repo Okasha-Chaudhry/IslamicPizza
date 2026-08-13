@@ -211,6 +211,12 @@ export default function Orders(): React.JSX.Element {
                     <span>- Rs {selected.discount}</span>
                   </div>
                 )}
+                {selected.deliveryCharge > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Delivery</span>
+                    <span>+ Rs {selected.deliveryCharge}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-base font-bold">
                   <span>Total</span>
                   <span>Rs {selected.total}</span>
@@ -246,6 +252,7 @@ export default function Orders(): React.JSX.Element {
                     if (selected.customerPhone) cart.setCustomerPhone(selected.customerPhone)
                     if (selected.customerAddress) cart.setCustomerAddress(selected.customerAddress)
                     cart.setDiscountAmount(selected.discount)
+                    cart.setDeliveryCharge(selected.deliveryCharge)
                     for (const item of selected.items) {
                       for (let q = 0; q < item.quantity; q++) {
                         cart.addLine({

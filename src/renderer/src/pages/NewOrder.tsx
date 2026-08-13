@@ -48,7 +48,6 @@ function rankProducts(products: ProductWithVariants[], query: string): ProductWi
 export default function NewOrder(): React.JSX.Element {
   const cart = useCartStore()
   const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.role === 'admin'
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [tables, setTables] = useState<NamedEntity[]>([])
@@ -216,7 +215,8 @@ export default function NewOrder(): React.JSX.Element {
 
   const subtotal = cartSubtotal(cart.lines)
   const discountAmount = Math.min(cart.discountAmount, subtotal)
-  const total = subtotal - discountAmount
+  const deliveryCharge = cart.orderType === 'delivery' ? cart.deliveryCharge : 0
+  const total = subtotal - discountAmount + deliveryCharge
 
   async function updateOrder(): Promise<void> {
     setError('')
@@ -230,6 +230,12 @@ export default function NewOrder(): React.JSX.Element {
     const res = await window.api.orders.updateItems({
       orderId: cart.editingOrderId,
       discountAmount: cart.discountAmount,
+      orderType: cart.orderType,
+      tableId: cart.tableId,
+      waiterId: cart.waiterId,
+      customerPhone: cart.customerPhone,
+      customerAddress: cart.customerAddress,
+      deliveryCharge: cart.deliveryCharge,
       items: cart.lines.map((l) => ({
         productId: l.productId,
         variantId: l.variantId,
@@ -608,20 +614,33 @@ export default function NewOrder(): React.JSX.Element {
             <span>Subtotal</span>
             <span>Rs {subtotal}</span>
           </div>
-          {isAdmin && (
           <div className="flex items-center justify-between gap-2 text-sm">
             <span>Discount Rs</span>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 min="0"
-                max="100"
                 className="h-8 w-16 text-right"
                 value={cart.discountAmount === 0 ? '' : cart.discountAmount}
                 placeholder="0"
                 onChange={(e) => cart.setDiscountAmount(Number(e.target.value))}
               />
               <span className="w-16 text-right text-muted-foreground">- Rs {discountAmount}</span>
+            </div>
+          </div>
+          {cart.orderType === 'delivery' && (
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span>Delivery Rs</span>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="0"
+                className="h-8 w-16 text-right"
+                value={cart.deliveryCharge === 0 ? '' : cart.deliveryCharge}
+                placeholder="0"
+                onChange={(e) => cart.setDeliveryCharge(Number(e.target.value))}
+              />
+              <span className="w-16 text-right text-muted-foreground">+ Rs {cart.deliveryCharge}</span>
             </div>
           </div>
           )}

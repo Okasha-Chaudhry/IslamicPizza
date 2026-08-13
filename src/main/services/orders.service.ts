@@ -5,7 +5,8 @@ import { upsertCustomerOnOrder } from './customers.service'
 import type {
   CreateOrderInput,
   OrderWithItems,
-  OrderStatus
+  OrderStatus,
+  OrderType
 } from '../../shared/types'
 
 function nextOrderNumber(): string {
@@ -24,6 +25,8 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
   if (!input.items || input.items.length === 0) throw new Error('Order has no items')
   if (input.orderType === 'dine_in' && !input.tableId) throw new Error('Select a table for dine-in')
   const discountInput = Math.max(0, Math.round(input.discountAmount ?? 0))
+  const deliveryChargeInput =
+    input.orderType === 'delivery' ? Math.max(0, Math.round(input.deliveryCharge ?? 0)) : 0
 
   const db = getDb()
   const sqlite = getSqlite()
@@ -61,7 +64,7 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
     const subtotal = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0)
     const discount = Math.min(discountInput, subtotal)
     const discountPercent = subtotal > 0 ? Math.round((discount / subtotal) * 100) : 0
-    const total = subtotal - discount
+    const total = subtotal - discount + deliveryChargeInput
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
 
     const order = db
@@ -76,6 +79,7 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
         subtotal,
         discountPercent,
         discount,
+        deliveryCharge: deliveryChargeInput,
         taxAmount: 0,
         total,
         note: input.note?.trim() || null,
@@ -176,6 +180,7 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
     subtotal: r.subtotal,
     discountPercent: r.discount_percent,
     discount: r.discount,
+    deliveryCharge: r.delivery_charge,
     taxAmount: r.tax_amount,
     total: r.total,
     note: r.note,
@@ -190,6 +195,12 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
 export function updateOrderItems(input: {
   orderId: number
   discountAmount: number
+  orderType?: OrderType
+  tableId?: number | null
+  waiterId?: number | null
+  customerPhone?: string | null
+  customerAddress?: string | null
+  deliveryCharge?: number
   note?: string
   items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
 }): OrderWithItems {
@@ -250,7 +261,10 @@ export function updateOrderItems(input: {
     const subtotal = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0)
     const discount = Math.min(discountInput, subtotal)
     const discountPercent = subtotal > 0 ? Math.round((discount / subtotal) * 100) : 0
-    const total = subtotal - discount
+    const newOrderType: OrderType = input.orderType ?? (existing.orderType as OrderType)
+    const deliveryChargeInput =
+      newOrderType === 'delivery' ? Math.max(0, Math.round(input.deliveryCharge ?? 0)) : 0
+    const total = subtotal - discount + deliveryChargeInput
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
 
     const savedItems = resolvedItems.map((item) =>
@@ -267,9 +281,21 @@ export function updateOrderItems(input: {
     const order = db
       .update(orders)
       .set({
+        orderType: newOrderType,
+        tableId: newOrderType === 'dine_in' ? (input.tableId ?? existing.tableId ?? null) : null,
+        waiterId: newOrderType === 'dine_in' ? (input.waiterId ?? existing.waiterId ?? null) : null,
+        customerPhone:
+          newOrderType === 'delivery'
+            ? (input.customerPhone?.trim() ?? existing.customerPhone ?? null)
+            : null,
+        customerAddress:
+          newOrderType === 'delivery'
+            ? (input.customerAddress?.trim() ?? existing.customerAddress ?? null)
+            : null,
         subtotal,
         discountPercent,
         discount,
+        deliveryCharge: deliveryChargeInput,
         total,
         note: input.note?.trim() || existing.note
       })

@@ -173,9 +173,14 @@ export async function printReceiptEscpos(
   }
   printer.drawLine()
 
-  if (order.discount > 0) {
+  if (order.discount > 0 || order.deliveryCharge > 0) {
     printer.println(padRow('Subtotal:', money(order.subtotal), L))
+  }
+  if (order.discount > 0) {
     printer.println(padRow('Discount:', '-' + money(order.discount), L))
+  }
+  if (order.deliveryCharge > 0) {
+    printer.println(padRow('Delivery:', '+' + money(order.deliveryCharge), L))
   }
   printer.bold(true)
   printer.setTextSize(1, 1)
