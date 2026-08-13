@@ -275,6 +275,7 @@ export default function NewOrder(): React.JSX.Element {
       customerPhone: cart.customerPhone,
       customerAddress: cart.customerAddress,
       discountAmount: cart.discountAmount,
+      deliveryCharge: cart.deliveryCharge,
       markPaid,
       items: cart.lines.map((l) => ({
         productId: l.productId,
