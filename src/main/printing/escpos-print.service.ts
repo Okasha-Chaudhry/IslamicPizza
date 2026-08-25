@@ -33,13 +33,21 @@ function resourcePath(file: string): string {
 }
 
 function makePrinter(width: number): ThermalPrinter {
-  return new ThermalPrinter({
+  const printer = new ThermalPrinter({
     type: PrinterTypes.EPSON,
     interface: 'buffer',
     characterSet: CharacterSet.PC437_USA,
     removeSpecialCharacters: false,
-    width
+    width,
+    lineCharacter: '-'
   })
+  // Force a known state on EVERY printer (Bixolon, Black Copper, Epson, etc.):
+  // ESC @ = reset, ESC ! 0 = Font A normal, ESC SP 0 = zero char spacing.
+  // This makes column math (48/32 chars) reliable across all ESC/POS printers.
+  printer.add(Buffer.from([0x1b, 0x40])) // ESC @  (initialize)
+  printer.add(Buffer.from([0x1b, 0x21, 0x00])) // ESC ! 0 (Font A, no bold/double)
+  printer.add(Buffer.from([0x1b, 0x20, 0x00])) // ESC SP 0 (character spacing = 0)
+  return printer
 }
 
 async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
@@ -91,9 +99,16 @@ function money(n: number): string {
 }
 
 // Two-column row: label left, value right-aligned to full width.
+// Guards against overflow so a line never exceeds the paper width (no cut/wrap).
 function padRow(left: string, right: string, L: Layout): string {
-  const space = Math.max(1, L.width - left.length - right.length)
-  return left + ' '.repeat(space) + right
+  let l = left
+  let r = right
+  if (l.length + r.length + 1 > L.width) {
+    const maxLeft = Math.max(1, L.width - r.length - 1)
+    l = l.slice(0, maxLeft)
+  }
+  const space = Math.max(1, L.width - l.length - r.length)
+  return l + ' '.repeat(space) + r
 }
 
 // Item line: name (left, wraps), qty (center col), amount (right col).
@@ -304,13 +319,35 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
   const settings = getSettings()
   const L = layout(settings.receiptWidth)
   const printer = makePrinter(L.width)
+
   printer.alignCenter()
   printer.bold(true)
   printer.println('PRINTER TEST')
   printer.bold(false)
-  printer.println('ESC/POS OK')
+  printer.println(`Paper: ${settings.receiptWidth}mm  Width: ${L.width} chars`)
   printer.println(new Date().toLocaleString())
   printer.drawLine()
+
+  // Width ruler: the last digit should sit exactly at the right edge.
+  // If it wraps or gets cut, this printer's real width differs from L.width.
+  printer.alignLeft()
+  printer.println('Column width check:')
+  let ruler = ''
+  for (let i = 1; i <= L.width; i++) ruler += String(i % 10)
+  printer.println(ruler)
+
+  // Sample 3-column rows - these should line up perfectly.
+  printer.drawLine()
+  printer.println(itemHeader(L))
+  printer.drawLine()
+  printer.println(itemLine('Short item', 1, money(250), L))
+  printer.println(itemLine('A much longer product name that wraps', 2, money(1500), L))
+  printer.drawLine()
+  printer.println(padRow('TOTAL:', money(1750), L))
+  printer.drawLine()
+
+  printer.alignCenter()
+  printer.println('If columns line up, printer is OK')
   printer.println('Powered by XIOM')
   printer.cut()
   await sendRaw(printerName, printer.getBuffer())
