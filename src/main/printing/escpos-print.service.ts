@@ -8,6 +8,7 @@ import type { OrderWithItems, AppSettings } from '../../shared/types'
 import { getSettings } from '../services/settings.service'
 import { getDb } from '../db'
 import { products, kitchenSections } from '../db/schema'
+import { hasUrdu, renderItemRow } from './urdu-print'
 
 interface Names {
   tableName?: string
@@ -200,7 +201,25 @@ export async function printReceiptEscpos(
   printer.drawLine()
   for (const item of order.items) {
     const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
-    printer.println(itemLine(name, item.quantity, money(item.lineTotal), L))
+    if (hasUrdu(name)) {
+      const buf = renderItemRow({
+        name,
+        qty: item.quantity,
+        amount: money(item.lineTotal),
+        widthDots: L.width * 12,
+        fontSize: 30
+      })
+      await printer.printImageBuffer(buf)
+    } else {
+      printer.println(itemLine(name, item.quantity, money(item.lineTotal), L))
+    }
+    const contents = contentsByProduct.get(item.productId)
+    if (contents) {
+      for (const line of contents.split(',')) {
+        const t = line.trim()
+        if (t) printer.println('  - ' + t)
+      }
+    }
   }
   printer.drawLine()
 
@@ -295,11 +314,22 @@ export async function printKitchenEscpos(
       const name = item.variantName
         ? item.productName + ' (' + item.variantName + ')'
         : item.productName
-      printer.bold(true)
-      printer.setTextSize(1, 1)
-      printer.println(item.quantity + ' x ' + name)
-      printer.setTextNormal()
-      printer.bold(false)
+      if (hasUrdu(name)) {
+        const buf = renderItemRow({
+          name,
+          qty: String(item.quantity) + ' x',
+          widthDots: L.width * 12,
+          fontSize: 40,
+          bold: true
+        })
+        await printer.printImageBuffer(buf)
+      } else {
+        printer.bold(true)
+        printer.setTextSize(1, 1)
+        printer.println(item.quantity + ' x ' + name)
+        printer.setTextNormal()
+        printer.bold(false)
+      }
       const contents = contentsByProduct.get(item.productId)
       if (contents) {
         for (const line of contents.split(',')) {
@@ -362,7 +392,18 @@ export async function printReportEscpos(
   printer.drawLine()
   for (const p of report.popular) {
     const name = p.variantName ? p.productName + ' (' + p.variantName + ')' : p.productName
-    printer.println(itemLine(name, p.quantity, money(p.revenue), L))
+    if (hasUrdu(name)) {
+      const buf = renderItemRow({
+        name,
+        qty: p.quantity,
+        amount: money(p.revenue),
+        widthDots: L.width * 12,
+        fontSize: 28
+      })
+      await printer.printImageBuffer(buf)
+    } else {
+      printer.println(itemLine(name, p.quantity, money(p.revenue), L))
+    }
   }
   printer.drawLine()
 
