@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import type { ApiResult } from '../../shared/types'
 import * as categoriesService from '../services/categories.service'
+import * as kitchenSectionsService from '../services/kitchen-sections.service'
 import { tablesService, waitersService } from '../services/named-entity.service'
 import * as productsService from '../services/products.service'
 import * as ordersService from '../services/orders.service'
@@ -36,6 +37,10 @@ export function registerIpcHandlers(): void {
   handle('categories:create', categoriesService.createCategory)
   handle('categories:update', categoriesService.updateCategory)
   handle('categories:delete', categoriesService.deleteCategory)
+  handle('kitchenSections:list', kitchenSectionsService.listKitchenSections)
+  handle('kitchenSections:create', kitchenSectionsService.createKitchenSection)
+  handle('kitchenSections:update', kitchenSectionsService.updateKitchenSection)
+  handle('kitchenSections:delete', kitchenSectionsService.deleteKitchenSection)
 
   handle('products:list', productsService.listProducts)
   handle('products:create', productsService.createProduct)

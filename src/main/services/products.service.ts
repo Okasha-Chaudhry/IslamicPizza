@@ -1,6 +1,6 @@
 import { eq, asc } from 'drizzle-orm'
 import { getDb, getSqlite } from '../db'
-import { products, variants, categories } from '../db/schema'
+import { products, variants, categories, kitchenSections } from '../db/schema'
 import type {
   Product,
   ProductWithVariants,
@@ -27,6 +27,7 @@ export function listProducts(): ProductWithVariants[] {
     .select({
       id: products.id,
       categoryId: products.categoryId,
+      kitchenSectionId: products.kitchenSectionId,
       name: products.name,
       price: products.price,
       hasVariants: products.hasVariants,
@@ -34,10 +35,12 @@ export function listProducts(): ProductWithVariants[] {
       timesSold: products.timesSold,
       lastSoldAt: products.lastSoldAt,
       createdAt: products.createdAt,
-      categoryName: categories.name
+      categoryName: categories.name,
+      kitchenSectionName: kitchenSections.name
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(kitchenSections, eq(products.kitchenSectionId, kitchenSections.id))
     .orderBy(asc(categories.sortOrder), asc(categories.name), asc(products.name))
     .all()
 
@@ -66,6 +69,7 @@ export function createProduct(input: CreateProductInput): Product {
       .insert(products)
       .values({
         categoryId: input.categoryId,
+        kitchenSectionId: input.kitchenSectionId ?? null,
         name,
         price: hasVariants ? 0 : Math.round(input.price),
         hasVariants

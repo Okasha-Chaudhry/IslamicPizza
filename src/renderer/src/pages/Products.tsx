@@ -4,23 +4,26 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import ProductFormDialog from '@/components/products/ProductFormDialog'
 import { cn } from '@/lib/utils'
-import type { Category, ProductWithVariants } from '../../../shared/types'
+import type { Category, KitchenSection, ProductWithVariants } from '../../../shared/types'
 
 export default function Products(): React.JSX.Element {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [kitchenSections, setKitchenSections] = useState<KitchenSection[]>([])
   const [filterCat, setFilterCat] = useState<number | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<ProductWithVariants | null>(null)
   const [error, setError] = useState('')
 
   async function refresh(): Promise<void> {
-    const [pRes, cRes] = await Promise.all([
+    const [pRes, cRes, sRes] = await Promise.all([
       window.api.products.list(),
-      window.api.categories.list()
+      window.api.categories.list(),
+      window.api.kitchenSections.list()
     ])
     if (pRes.ok && pRes.data) setProducts(pRes.data)
     if (cRes.ok && cRes.data) setCategories(cRes.data)
+    if (sRes.ok && sRes.data) setKitchenSections(sRes.data)
   }
 
   useEffect(() => {
@@ -139,6 +142,7 @@ export default function Products(): React.JSX.Element {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         categories={categories}
+        kitchenSections={kitchenSections}
         product={editing}
         onSaved={() => void refresh()}
       />

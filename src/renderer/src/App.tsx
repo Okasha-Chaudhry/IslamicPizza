@@ -11,6 +11,7 @@ import NewOrder from '@/pages/NewOrder'
 import Orders from '@/pages/Orders'
 import Products from '@/pages/Products'
 import Categories from '@/pages/Categories'
+import KitchenSections from '@/pages/KitchenSections'
 import Tables from '@/pages/Tables'
 import Waiters from '@/pages/Waiters'
 import Reports from '@/pages/Reports'
@@ -69,7 +70,7 @@ function App(): React.JSX.Element {
               <Route path="/new-order" element={<NewOrder />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/products" element={<AdminOnly><Products /></AdminOnly>} />
-              <Route path="/categories" element={<AdminOnly><Categories /></AdminOnly>} />
+              <Route path="/categories" element={<AdminOnly><Categories /></AdminOnly>} />`n              <Route path="/kitchen-sections" element={<AdminOnly><KitchenSections /></AdminOnly>} />
               <Route path="/tables" element={<AdminOnly><Tables /></AdminOnly>} />
               <Route path="/waiters" element={<AdminOnly><Waiters /></AdminOnly>} />
               <Route path="/reports" element={<AdminOnly><Reports /></AdminOnly>} />

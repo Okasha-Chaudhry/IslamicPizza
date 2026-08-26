@@ -28,6 +28,7 @@ const navItems: { to: string; label: string; icon: typeof LayoutDashboard; highl
   { to: '/orders', label: 'Orders', icon: ReceiptText },
   { to: '/products', label: 'Menu', icon: Package, adminOnly: true },
   { to: '/categories', label: 'Categories', icon: FolderOpen, adminOnly: true },
+  { to: '/kitchen-sections', label: 'Kitchen Sections', icon: FolderOpen, adminOnly: true },
   { to: '/tables', label: 'Tables', icon: Table2, adminOnly: true },
   { to: '/waiters', label: 'Waiters', icon: Users, adminOnly: true },
   { to: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },

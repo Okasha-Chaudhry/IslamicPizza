@@ -7,6 +7,9 @@ import type {
   UpdateCategoryInput,
   NamedEntity,
   OrderType,
+  KitchenSection,
+  CreateKitchenSectionInput,
+  UpdateKitchenSectionInput,
   CreateNamedEntityInput,
   UpdateNamedEntityInput,
   Product,
@@ -51,6 +54,14 @@ const api = {
     update: (input: UpdateCategoryInput): Promise<ApiResult<Category>> =>
       ipcRenderer.invoke('categories:update', input),
     delete: (id: number): Promise<ApiResult<void>> => ipcRenderer.invoke('categories:delete', id)
+  },
+  kitchenSections: {
+    list: (): Promise<ApiResult<KitchenSection[]>> => ipcRenderer.invoke('kitchenSections:list'),
+    create: (input: CreateKitchenSectionInput): Promise<ApiResult<KitchenSection>> =>
+      ipcRenderer.invoke('kitchenSections:create', input),
+    update: (input: UpdateKitchenSectionInput): Promise<ApiResult<KitchenSection>> =>
+      ipcRenderer.invoke('kitchenSections:update', input),
+    delete: (id: number): Promise<ApiResult<void>> => ipcRenderer.invoke('kitchenSections:delete', id)
   },
   products: {
     list: (): Promise<ApiResult<ProductWithVariants[]>> => ipcRenderer.invoke('products:list'),

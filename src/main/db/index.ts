@@ -140,6 +140,17 @@ const MIGRATIONS: string[] = [
   // v5 - delivery charge on orders
   `
   ALTER TABLE orders ADD COLUMN delivery_charge INTEGER NOT NULL DEFAULT 0;
+  `,
+  // v6 - kitchen sections (stations) + per-product section
+  `
+  CREATE TABLE IF NOT EXISTS kitchen_sections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+  ALTER TABLE products ADD COLUMN kitchen_section_id INTEGER REFERENCES kitchen_sections(id);
   `
 ]
 

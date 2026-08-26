@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type { Category, ProductWithVariants } from '../../../../shared/types'
+import type { Category, KitchenSection, ProductWithVariants } from '../../../../shared/types'
 
 const priceString = z
   .string()
@@ -29,6 +29,7 @@ const priceString = z
 const formSchema = z.object({
   name: z.string().trim().min(1, 'Item name is required'),
   categoryId: z.string().min(1, 'Select a category'),
+  kitchenSectionId: z.string(),
   price: z.string(),
   variants: z.array(
     z.object({
@@ -44,6 +45,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   categories: Category[]
+  kitchenSections: KitchenSection[]
   product: ProductWithVariants | null
   onSaved: () => void
 }
@@ -52,12 +54,13 @@ export default function ProductFormDialog({
   open,
   onOpenChange,
   categories,
+  kitchenSections,
   product,
   onSaved
 }: Props): React.JSX.Element {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', categoryId: '', price: '0', variants: [] }
+    defaultValues: { name: '', categoryId: '', kitchenSectionId: '', price: '0', variants: [] }
   })
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'variants' })
@@ -70,10 +73,11 @@ export default function ProductFormDialog({
           ? {
               name: product.name,
               categoryId: String(product.categoryId),
+              kitchenSectionId: product.kitchenSectionId ? String(product.kitchenSectionId) : '',
               price: String(product.price),
               variants: product.variants.map((v) => ({ name: v.name, price: String(v.price) }))
             }
-          : { name: '', categoryId: '', price: '0', variants: [] }
+          : { name: '', categoryId: '', kitchenSectionId: '', price: '0', variants: [] }
       )
     }
   }, [open, product, form])
@@ -87,6 +91,7 @@ export default function ProductFormDialog({
     const payload = {
       name: values.name,
       categoryId: Number(values.categoryId),
+      kitchenSectionId: values.kitchenSectionId ? Number(values.kitchenSectionId) : null,
       price: values.variants.length > 0 ? 0 : Number(values.price),
       variants: values.variants.map((v) => ({ name: v.name, price: Number(v.price) }))
     }
@@ -138,6 +143,28 @@ export default function ProductFormDialog({
             {form.formState.errors.categoryId && (
               <p className="text-sm text-destructive">{form.formState.errors.categoryId.message}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Kitchen Section (optional)</Label>
+            <Select
+              value={form.watch('kitchenSectionId') || 'none'}
+              onValueChange={(v) => form.setValue('kitchenSectionId', v === 'none' ? '' : v)}
+            >
+              <SelectTrigger className="h-11 w-full">
+                <SelectValue placeholder="No section" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No section</SelectItem>
+                {kitchenSections
+                  .filter((s) => s.isActive)
+                  .map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {!hasVariants && (

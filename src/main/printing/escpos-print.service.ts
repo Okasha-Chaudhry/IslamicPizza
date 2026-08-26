@@ -6,6 +6,8 @@ import { execFile } from 'child_process'
 import { existsSync } from 'fs'
 import type { OrderWithItems, AppSettings } from '../../shared/types'
 import { getSettings } from '../services/settings.service'
+import { getDb } from '../db'
+import { products, kitchenSections } from '../db/schema'
 
 interface Names {
   tableName?: string
@@ -234,36 +236,61 @@ export async function printKitchenEscpos(
 ): Promise<void> {
   const printerName = settings.kitchenPrinter || settings.defaultPrinter
   const L = layout(settings)
-  const printer = makePrinter(L.width)
 
-  printer.alignCenter()
-  printer.bold(true)
-  printer.setTextSize(1, 1)
-  printer.println('KITCHEN')
+  const db = getDb()
+  const sectionRows = db
+    .select({ id: products.id, sectionId: products.kitchenSectionId })
+    .from(products)
+    .all()
+  const sectionByProduct = new Map<number, number | null>()
+  for (const r of sectionRows) sectionByProduct.set(r.id, r.sectionId)
+
+  const sectionList = db.select().from(kitchenSections).all()
+  const sectionNameById = new Map<number, string>()
+  for (const s of sectionList) sectionNameById.set(s.id, s.name)
+
+  const groups = new Map<number, typeof order.items>()
+  for (const item of order.items) {
+    const sid = sectionByProduct.get(item.productId) ?? 0
+    const key = sid ?? 0
+    const arr = groups.get(key) ?? []
+    arr.push(item)
+    groups.set(key, arr)
+  }
+
   const typeLabel =
     order.orderType === 'dine_in' ? 'DINE IN' : order.orderType === 'delivery' ? 'DELIVERY' : 'TAKE AWAY'
-  printer.bold(true)
-  printer.setTextSize(1, 1)
-  printer.println(`${typeLabel}  #${order.orderNumber}`)
-  printer.setTextNormal()
-  printer.bold(false)
-  printer.println(new Date(order.createdAt).toLocaleString())
-  if (names.tableName) printer.println(`Table: ${names.tableName}`)
-  printer.drawLine()
 
-  printer.alignLeft()
-  for (const item of order.items) {
-    const name = item.variantName ? item.productName + ' (' + item.variantName + ')' : item.productName
+  for (const [sid, items] of groups) {
+    const sectionName = sid && sid > 0 ? sectionNameById.get(sid) : null
+    const printer = makePrinter(L.width)
+    printer.alignCenter()
     printer.bold(true)
     printer.setTextSize(1, 1)
-    printer.println(`${item.quantity} x ${name}`)
+    printer.println('KITCHEN')
+    if (sectionName) printer.println('[ ' + sectionName + ' ]')
+    printer.println(typeLabel + '  #' + order.orderNumber)
     printer.setTextNormal()
     printer.bold(false)
-    if (item.note) printer.println(`    * ${item.note}`)
-  }
-  printer.cut()
+    printer.println(new Date(order.createdAt).toLocaleString())
+    if (names.tableName) printer.println('Table: ' + names.tableName)
+    printer.drawLine()
 
-  await sendRaw(printerName, printer.getBuffer())
+    printer.alignLeft()
+    for (const item of items) {
+      const name = item.variantName
+        ? item.productName + ' (' + item.variantName + ')'
+        : item.productName
+      printer.bold(true)
+      printer.setTextSize(1, 1)
+      printer.println(item.quantity + ' x ' + name)
+      printer.setTextNormal()
+      printer.bold(false)
+      if (item.note) printer.println('    * ' + item.note)
+    }
+    printer.cut()
+    await sendRaw(printerName, printer.getBuffer())
+  }
 }
 
 export async function printReportEscpos(

@@ -47,9 +47,28 @@ export interface Variant {
   isActive: boolean
 }
 
+export interface KitchenSection {
+  id: number
+  name: string
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+}
+
+export interface CreateKitchenSectionInput {
+  name: string
+}
+
+export interface UpdateKitchenSectionInput {
+  id: number
+  name?: string
+  isActive?: boolean
+}
+
 export interface Product {
   id: number
   categoryId: number
+  kitchenSectionId: number | null
   name: string
   price: number
   hasVariants: boolean
@@ -62,6 +81,7 @@ export interface Product {
 export interface ProductWithVariants extends Product {
   variants: Variant[]
   categoryName: string
+  kitchenSectionName: string | null
 }
 
 export interface VariantInput {
@@ -71,6 +91,7 @@ export interface VariantInput {
 
 export interface CreateProductInput {
   categoryId: number
+  kitchenSectionId?: number | null
   name: string
   price: number
   variants?: VariantInput[]
@@ -79,6 +100,7 @@ export interface CreateProductInput {
 export interface UpdateProductInput {
   id: number
   categoryId?: number
+  kitchenSectionId?: number | null
   name?: string
   price?: number
   isActive?: boolean

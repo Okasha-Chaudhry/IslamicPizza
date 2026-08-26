@@ -9,11 +9,20 @@ export const categories = sqliteTable('categories', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
 })
 
+export const kitchenSections = sqliteTable('kitchen_sections', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
+})
+
 export const products = sqliteTable('products', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   categoryId: integer('category_id')
     .notNull()
     .references(() => categories.id),
+  kitchenSectionId: integer('kitchen_section_id').references(() => kitchenSections.id),
   name: text('name').notNull(),
   price: integer('price').notNull().default(0),
   hasVariants: integer('has_variants', { mode: 'boolean' }).notNull().default(false),
