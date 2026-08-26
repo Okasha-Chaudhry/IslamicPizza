@@ -18,11 +18,16 @@ export default function Settings(): React.JSX.Element {
   const [msg, setMsg] = useState('')
   const [saving, setSaving] = useState(false)
 
+  async function loadPrinters(): Promise<void> {
+    const p = await window.api.printers.list()
+    if (p.ok && p.data) setPrinters(p.data)
+  }
+
   useEffect(() => {
     void (async () => {
-      const [s, p] = await Promise.all([window.api.settings.get(), window.api.printers.list()])
+      const s = await window.api.settings.get()
       if (s.ok && s.data) setSettings(s.data)
-      if (p.ok && p.data) setPrinters(p.data)
+      await loadPrinters()
     })()
   }, [])
 
@@ -223,7 +228,19 @@ export default function Settings(): React.JSX.Element {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Printers</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Printers</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void loadPrinters()
+              setMsg('Printer list refreshed')
+            }}
+          >
+            Refresh printers
+          </Button>
+        </div>
         {printerSelect('Receipt Printer', 'defaultPrinter')}
         {printerSelect('Kitchen Printer', 'kitchenPrinter')}
         <Button
@@ -238,8 +255,9 @@ export default function Settings(): React.JSX.Element {
           Test Print
         </Button>
         <p className="text-xs text-muted-foreground">
-          Printers are detected from Windows. If a test print does not come out, make sure the
-          printer cable is in its usual USB socket, then power the printer off and on.
+          Printers are detected from Windows. Plug the printer into any USB port, turn it on,
+          then click "Refresh printers" and select it from the list above. If it is not shown,
+          make sure its Windows driver is installed.
         </p>
       </section>
 
