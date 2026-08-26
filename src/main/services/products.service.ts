@@ -28,6 +28,7 @@ export function listProducts(): ProductWithVariants[] {
       id: products.id,
       categoryId: products.categoryId,
       kitchenSectionId: products.kitchenSectionId,
+      platterContents: products.platterContents,
       name: products.name,
       price: products.price,
       hasVariants: products.hasVariants,
@@ -70,6 +71,7 @@ export function createProduct(input: CreateProductInput): Product {
       .values({
         categoryId: input.categoryId,
         kitchenSectionId: input.kitchenSectionId ?? null,
+        platterContents: input.platterContents ?? null,
         name,
         price: hasVariants ? 0 : Math.round(input.price),
         hasVariants

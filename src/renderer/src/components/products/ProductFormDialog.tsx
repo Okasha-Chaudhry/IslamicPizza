@@ -30,6 +30,7 @@ const formSchema = z.object({
   name: z.string().trim().min(1, 'Item name is required'),
   categoryId: z.string().min(1, 'Select a category'),
   kitchenSectionId: z.string(),
+  platterContents: z.string(),
   price: z.string(),
   variants: z.array(
     z.object({
@@ -60,7 +61,7 @@ export default function ProductFormDialog({
 }: Props): React.JSX.Element {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', categoryId: '', kitchenSectionId: '', price: '0', variants: [] }
+    defaultValues: { name: '', categoryId: '', kitchenSectionId: '', platterContents: '', price: '0', variants: [] }
   })
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'variants' })
@@ -74,10 +75,11 @@ export default function ProductFormDialog({
               name: product.name,
               categoryId: String(product.categoryId),
               kitchenSectionId: product.kitchenSectionId ? String(product.kitchenSectionId) : '',
+              platterContents: product.platterContents ?? '',
               price: String(product.price),
               variants: product.variants.map((v) => ({ name: v.name, price: String(v.price) }))
             }
-          : { name: '', categoryId: '', kitchenSectionId: '', price: '0', variants: [] }
+          : { name: '', categoryId: '', kitchenSectionId: '', platterContents: '', price: '0', variants: [] }
       )
     }
   }, [open, product, form])
@@ -92,6 +94,7 @@ export default function ProductFormDialog({
       name: values.name,
       categoryId: Number(values.categoryId),
       kitchenSectionId: values.kitchenSectionId ? Number(values.kitchenSectionId) : null,
+      platterContents: values.platterContents.trim() || null,
       price: values.variants.length > 0 ? 0 : Number(values.price),
       variants: values.variants.map((v) => ({ name: v.name, price: Number(v.price) }))
     }
@@ -165,6 +168,20 @@ export default function ProductFormDialog({
                   ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="platterContents">Platter Contents (optional)</Label>
+            <textarea
+              id="platterContents"
+              rows={3}
+              placeholder="e.g. 1 Full Saji, 2 Malai Boti, 2 Roti, 3 Plate Rice"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              {...form.register('platterContents')}
+            />
+            <p className="text-xs text-muted-foreground">
+              For platters/combos: list the items inside. These print on the kitchen slip and receipt.
+            </p>
           </div>
 
           {!hasVariants && (

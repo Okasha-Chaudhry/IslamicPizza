@@ -152,6 +152,12 @@ export async function printReceiptEscpos(
 ): Promise<void> {
   const L = layout(settings)
   const printer = makePrinter(L.width)
+  const contentsRows = getDb()
+    .select({ id: products.id, contents: products.platterContents })
+    .from(products)
+    .all()
+  const contentsByProduct = new Map<number, string | null>()
+  for (const r of contentsRows) contentsByProduct.set(r.id, r.contents)
 
   printer.alignCenter()
   if (settings.receiptLogo) {
@@ -239,11 +245,19 @@ export async function printKitchenEscpos(
 
   const db = getDb()
   const sectionRows = db
-    .select({ id: products.id, sectionId: products.kitchenSectionId })
+    .select({
+      id: products.id,
+      sectionId: products.kitchenSectionId,
+      contents: products.platterContents
+    })
     .from(products)
     .all()
   const sectionByProduct = new Map<number, number | null>()
-  for (const r of sectionRows) sectionByProduct.set(r.id, r.sectionId)
+  const contentsByProduct = new Map<number, string | null>()
+  for (const r of sectionRows) {
+    sectionByProduct.set(r.id, r.sectionId)
+    contentsByProduct.set(r.id, r.contents)
+  }
 
   const sectionList = db.select().from(kitchenSections).all()
   const sectionNameById = new Map<number, string>()
@@ -286,6 +300,13 @@ export async function printKitchenEscpos(
       printer.println(item.quantity + ' x ' + name)
       printer.setTextNormal()
       printer.bold(false)
+      const contents = contentsByProduct.get(item.productId)
+      if (contents) {
+        for (const line of contents.split(',')) {
+          const t = line.trim()
+          if (t) printer.println('    - ' + t)
+        }
+      }
       if (item.note) printer.println('    * ' + item.note)
     }
     printer.cut()

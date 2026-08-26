@@ -151,6 +151,10 @@ const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
   ALTER TABLE products ADD COLUMN kitchen_section_id INTEGER REFERENCES kitchen_sections(id);
+  `,
+  // v7 - platter contents (items inside a platter, shown on slips/receipt)
+  `
+  ALTER TABLE products ADD COLUMN platter_contents TEXT;
   `
 ]
 

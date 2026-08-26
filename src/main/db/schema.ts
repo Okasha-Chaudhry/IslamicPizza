@@ -23,6 +23,7 @@ export const products = sqliteTable('products', {
     .notNull()
     .references(() => categories.id),
   kitchenSectionId: integer('kitchen_section_id').references(() => kitchenSections.id),
+  platterContents: text('platter_contents'),
   name: text('name').notNull(),
   price: integer('price').notNull().default(0),
   hasVariants: integer('has_variants', { mode: 'boolean' }).notNull().default(false),

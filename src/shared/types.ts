@@ -69,6 +69,7 @@ export interface Product {
   id: number
   categoryId: number
   kitchenSectionId: number | null
+  platterContents: string | null
   name: string
   price: number
   hasVariants: boolean
@@ -92,6 +93,7 @@ export interface VariantInput {
 export interface CreateProductInput {
   categoryId: number
   kitchenSectionId?: number | null
+  platterContents?: string | null
   name: string
   price: number
   variants?: VariantInput[]
@@ -101,6 +103,7 @@ export interface UpdateProductInput {
   id: number
   categoryId?: number
   kitchenSectionId?: number | null
+  platterContents?: string | null
   name?: string
   price?: number
   isActive?: boolean
