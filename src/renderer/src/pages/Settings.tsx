@@ -203,6 +203,22 @@ export default function Settings(): React.JSX.Element {
               <SelectItem value="A4">A4</SelectItem>
             </SelectContent>
           </Select>
+          <div className="mt-3 space-y-1">
+            <Label className="text-sm">Characters per line (0 = automatic)</Label>
+            <Input
+              type="number"
+              min="0"
+              className="h-11 w-full"
+              value={settings.charsPerLine === 0 ? '' : settings.charsPerLine}
+              placeholder="0"
+              onChange={(e) => set('charsPerLine', Math.max(0, Number(e.target.value) || 0))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave 0 for automatic (48 for 80mm, 32 for 58mm). Only change this if the
+              receipt columns do not line up: run Test Print, count how many characters
+              fit on one line, and enter that number here.
+            </p>
+          </div>
         </div>
       </section>
 

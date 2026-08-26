@@ -10,6 +10,7 @@ export interface AppSettings {
   defaultPrinter: string
   kitchenPrinter: string
   receiptWidth: '58' | '80' | 'A4'
+  charsPerLine: number
   receiptLogo: string
   paymentQr: string
 }
@@ -24,6 +25,7 @@ const DEFAULTS: AppSettings = {
   defaultPrinter: '',
   kitchenPrinter: '',
   receiptWidth: '80',
+  charsPerLine: 0,
   receiptLogo: '',
   paymentQr: ''
 }

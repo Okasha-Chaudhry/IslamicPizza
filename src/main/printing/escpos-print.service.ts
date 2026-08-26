@@ -19,9 +19,15 @@ interface Layout {
   amtW: number
 }
 
-function layout(receiptWidth: string): Layout {
-  if (receiptWidth === '58') return { width: 32, qtyW: 4, amtW: 8 }
-  return { width: 48, qtyW: 5, amtW: 10 }
+function layout(settings: AppSettings): Layout {
+  // If the client set an explicit characters-per-line (for a printer whose
+  // width differs from the 48/32 norm), use it. 0 = auto from paper width.
+  const override = settings.charsPerLine
+  const width = override && override > 0 ? override : settings.receiptWidth === '58' ? 32 : 48
+  // Scale the qty/amount columns to the width so 58mm, 80mm, and odd widths all align.
+  const amtW = Math.max(6, Math.round(width * 0.21))
+  const qtyW = Math.max(3, Math.round(width * 0.1))
+  return { width, qtyW, amtW }
 }
 
 function resourcePath(file: string): string {
@@ -142,7 +148,7 @@ export async function printReceiptEscpos(
   settings: AppSettings,
   names: Names
 ): Promise<void> {
-  const L = layout(settings.receiptWidth)
+  const L = layout(settings)
   const printer = makePrinter(L.width)
 
   printer.alignCenter()
@@ -179,7 +185,9 @@ export async function printReceiptEscpos(
   printer.drawLine()
 
   printer.bold(true)
+  printer.add(Buffer.from([0x1b, 0x47, 0x01]))
   printer.println(itemHeader(L))
+  printer.add(Buffer.from([0x1b, 0x47, 0x00]))
   printer.bold(false)
   printer.drawLine()
   for (const item of order.items) {
@@ -206,6 +214,8 @@ export async function printReceiptEscpos(
   printer.alignCenter()
   printer.drawLine()
   if (settings.receiptFooter) printer.println(settings.receiptFooter)
+  printer.newLine()
+  printer.newLine()
   try {
     await printer.printImage(resourcePath('xiom-logo-print.png'))
   } catch {
@@ -223,7 +233,7 @@ export async function printKitchenEscpos(
   names: Names
 ): Promise<void> {
   const printerName = settings.kitchenPrinter || settings.defaultPrinter
-  const L = layout(settings.receiptWidth)
+  const L = layout(settings)
   const printer = makePrinter(L.width)
 
   printer.alignCenter()
@@ -273,7 +283,7 @@ export async function printReportEscpos(
   },
   settings: AppSettings
 ): Promise<void> {
-  const L = layout(settings.receiptWidth)
+  const L = layout(settings)
   const printer = makePrinter(L.width)
   const s = report.summary
   const range = report.from === report.to ? report.from : `${report.from} to ${report.to}`
@@ -317,7 +327,7 @@ export async function printReportEscpos(
 
 export async function testPrintEscpos(printerName: string): Promise<void> {
   const settings = getSettings()
-  const L = layout(settings.receiptWidth)
+  const L = layout(settings)
   const printer = makePrinter(L.width)
 
   printer.alignCenter()
@@ -355,7 +365,7 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
 
 export async function rawTestPrint(text: string): Promise<void> {
   const settings = getSettings()
-  const L = layout(settings.receiptWidth)
+  const L = layout(settings)
   const printer = makePrinter(L.width)
   for (const line of text.split('\n')) printer.println(line)
   printer.cut()
