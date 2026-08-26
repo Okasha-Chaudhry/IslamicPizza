@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer'
 import { PosPrinter } from 'electron-pos-printer'
 import { join } from 'path'
@@ -37,6 +38,20 @@ function resourcePath(file: string): string {
   const unpacked = join(process.resourcesPath, 'app.asar.unpacked', 'resources', file)
   if (existsSync(unpacked)) return unpacked
   return join(process.resourcesPath, 'resources', file)
+}
+
+// Resolve a user-uploaded image (logo/qr) saved in userData.
+// Accepts either a bare filename (new) or a full path (legacy). Returns '' if missing.
+function userImagePath(stored: string): string {
+  if (!stored) return ''
+  if (existsSync(stored)) return stored // legacy full path still on disk
+  const inUserData = join(app.getPath('userData'), stored)
+  if (existsSync(inUserData)) return inUserData
+  // legacy: full path saved but only the filename survives
+  const base = stored.split(/[\\/]/).pop() || stored
+  const byBase = join(app.getPath('userData'), base)
+  if (existsSync(byBase)) return byBase
+  return ''
 }
 
 // Feed a few lines then full-cut. More reliable than .cut() on some printers.
@@ -128,9 +143,10 @@ export async function printReceiptEscpos(
   for (const r of contentsRows) contentsByProduct.set(r.id, r.contents)
 
   printer.alignCenter()
-  if (settings.receiptLogo) {
+  const logoPath = userImagePath(settings.receiptLogo)
+  if (logoPath) {
     try {
-      await printer.printImage(settings.receiptLogo)
+      await printer.printImage(logoPath)
     } catch {
       // logo failed, skip
     }

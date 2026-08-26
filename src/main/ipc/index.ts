@@ -84,7 +84,8 @@ export function registerIpcHandlers(): void {
         .png()
         .toFile(destPath)
       const key = kind === 'logo' ? 'receiptLogo' : 'paymentQr'
-      settingsService.saveSettings({ [key]: destPath })
+      // Store just the filename; print resolves it from userData at print time.
+      settingsService.saveSettings({ [key]: destName })
       return { ok: true, data: destPath }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Image failed' }
