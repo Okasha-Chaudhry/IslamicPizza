@@ -1,8 +1,7 @@
 import { app } from 'electron'
 import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer'
-import { PosPrinter } from 'electron-pos-printer'
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, appendFileSync } from 'fs'
 import type { OrderWithItems, AppSettings } from '../../shared/types'
 import { getSettings } from '../services/settings.service'
 import { getDb } from '../db'
@@ -80,9 +79,19 @@ function makePrinter(width: number): ThermalPrinter {
 
 async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
   if (!printerName) throw new Error('No printer selected in Settings')
-  // Pre-compiled native transport - no runtime C#/PowerShell compile.
-  // Works on any Windows PC regardless of .NET SDK / activation state.
-  await PosPrinter.sendRawCommand(printerName, buffer)
+  const logFile = join(app.getPath('userData'), 'print-log.txt')
+  const stamp = new Date().toISOString()
+  try {
+    // winspool WritePrinter via prebuilt native addon (binary-safe, no runtime compile).
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const rawprint = require('winrawprinter')
+    await rawprint.PrintBufferToPrinterAsync(buffer, printerName)
+    try { appendFileSync(logFile, stamp + ' printed ' + buffer.length + ' bytes to "' + printerName + '" OK\n') } catch { /* ignore */ }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    try { appendFileSync(logFile, stamp + ' PRINT ERROR to "' + printerName + '": ' + msg + '\n') } catch { /* ignore */ }
+    throw new Error('Print failed: ' + msg)
+  }
 }
 
 function money(n: number): string {
