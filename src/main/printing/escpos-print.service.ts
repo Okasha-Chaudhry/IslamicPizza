@@ -1,7 +1,9 @@
 import { app } from 'electron'
 import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer'
 import { join } from 'path'
-import { existsSync, appendFileSync } from 'fs'
+import { existsSync, appendFileSync, writeFileSync, unlinkSync } from 'fs'
+import { tmpdir } from 'os'
+import { execFile } from 'child_process'
 import type { OrderWithItems, AppSettings } from '../../shared/types'
 import { getSettings } from '../services/settings.service'
 import { getDb } from '../db'
@@ -81,17 +83,35 @@ async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
   if (!printerName) throw new Error('No printer selected in Settings')
   const logFile = join(app.getPath('userData'), 'print-log.txt')
   const stamp = new Date().toISOString()
+  // Share the printer (idempotent) and copy raw bytes to its share via UNC.
+  // This is binary-safe and needs no native module or runtime compile,
+  // so it works on any Windows PC (even unactivated / no .NET SDK).
+  const shareName = 'POS_' + printerName.replace(/[^A-Za-z0-9]/g, '')
+  const tmpFile = join(tmpdir(), 'escpos-' + Date.now() + '.prn')
   try {
-    // winspool WritePrinter via prebuilt native addon (binary-safe, no runtime compile).
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const rawprint = require('winrawprinter')
-    await rawprint.PrintBufferToPrinterAsync(buffer, printerName)
-    try { appendFileSync(logFile, stamp + ' printed ' + buffer.length + ' bytes to "' + printerName + '" OK\n') } catch { /* ignore */ }
+    writeFileSync(tmpFile, buffer)
+    // Ensure the printer is shared (ignore error if already shared).
+    await runCmd('powershell', ['-NoProfile', '-Command',
+      'Set-Printer -Name "' + printerName + '" -Shared $true -ShareName "' + shareName + '" -ErrorAction SilentlyContinue'])
+    // Copy the raw file to the printer share.
+    await runCmd('cmd', ['/c', 'copy', '/b', tmpFile, '\\\\localhost\\' + shareName])
+    try { appendFileSync(logFile, stamp + ' printed ' + buffer.length + ' bytes via share "' + shareName + '" OK\n') } catch { /* ignore */ }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    try { appendFileSync(logFile, stamp + ' PRINT ERROR to "' + printerName + '": ' + msg + '\n') } catch { /* ignore */ }
+    try { appendFileSync(logFile, stamp + ' PRINT ERROR: ' + msg + '\n') } catch { /* ignore */ }
     throw new Error('Print failed: ' + msg)
+  } finally {
+    try { unlinkSync(tmpFile) } catch { /* ignore */ }
   }
+}
+
+function runCmd(cmd: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
 }
 
 function money(n: number): string {
