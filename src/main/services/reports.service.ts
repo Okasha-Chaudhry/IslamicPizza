@@ -22,6 +22,14 @@ export interface PopularProduct {
   revenue: number
 }
 
+export interface SectionItemSales {
+  sectionName: string
+  productName: string
+  variantName: string | null
+  quantity: number
+  revenue: number
+}
+
 export interface DailySales {
   date: string
   orders: number
@@ -33,6 +41,7 @@ export interface SalesReport {
   to: string
   summary: SalesSummary
   popular: PopularProduct[]
+  bySection: SectionItemSales[]
   daily: DailySales[]
 }
 
@@ -75,6 +84,24 @@ export function getSalesReport(filter: ReportFilter): SalesReport {
     )
     .all(from, to) as PopularProduct[]
 
+  const bySection = sqlite
+    .prepare(
+      `SELECT
+        COALESCE(ks.name, 'No Section') AS sectionName,
+        oi.product_name AS productName,
+        oi.variant_name AS variantName,
+        SUM(oi.quantity) AS quantity,
+        SUM(oi.line_total) AS revenue
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      LEFT JOIN products p ON p.id = oi.product_id
+      LEFT JOIN kitchen_sections ks ON ks.id = p.kitchen_section_id
+      WHERE o.status = 'paid' AND date(o.created_at) BETWEEN ? AND ?
+      GROUP BY sectionName, oi.product_name, oi.variant_name
+      ORDER BY COALESCE(ks.sort_order, 999), sectionName, quantity DESC`
+    )
+    .all(from, to) as SectionItemSales[]
+
   const daily = sqlite
     .prepare(
       `SELECT
@@ -88,5 +115,5 @@ export function getSalesReport(filter: ReportFilter): SalesReport {
     )
     .all(from, to) as DailySales[]
 
-  return { from, to, summary: { ...summaryRow, avgOrderValue }, popular, daily }
+  return { from, to, summary: { ...summaryRow, avgOrderValue }, popular, bySection, daily }
 }

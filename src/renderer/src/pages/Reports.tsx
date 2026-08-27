@@ -39,10 +39,12 @@ export default function Reports(): React.JSX.Element {
     setTo(fmt(end))
   }
 
-  async function printIt(): Promise<void> {
+  async function printIt(mode: 'simple' | 'sections'): Promise<void> {
     if (!report) return
     setMsg('')
-    const res = await window.api.print.report(report)
+    // Simple report omits the section breakdown; section-wise includes it.
+    const payload = mode === 'sections' ? report : { ...report, bySection: undefined }
+    const res = await window.api.print.report(payload)
     setMsg(res.ok ? 'Report printed' : `Print failed: ${res.error}`)
   }
 
@@ -52,9 +54,14 @@ export default function Reports(): React.JSX.Element {
     <div className="max-w-4xl space-y-4 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Reports</h1>
-        <Button variant="outline" className="h-11" onClick={() => void printIt()} disabled={!report}>
-          <Printer className="size-4" /> Print Report
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="h-11" onClick={() => void printIt('simple')} disabled={!report}>
+            <Printer className="size-4" /> Simple Report
+          </Button>
+          <Button variant="outline" className="h-11" onClick={() => void printIt('sections')} disabled={!report}>
+            <Printer className="size-4" /> Section-wise Report
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

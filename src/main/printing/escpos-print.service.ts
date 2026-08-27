@@ -370,6 +370,7 @@ export async function printReportEscpos(
       avgOrderValue: number
     }
     popular: { productName: string; variantName: string | null; quantity: number; revenue: number }[]
+    bySection?: { sectionName: string; productName: string; variantName: string | null; quantity: number; revenue: number }[]
   },
   settings: AppSettings
 ): Promise<void> {
@@ -416,6 +417,53 @@ export async function printReportEscpos(
     } else {
       printer.println(itemLine(name, p.quantity, money(p.revenue), L))
     }
+  }
+  if (report.bySection && report.bySection.length > 0) {
+    printer.drawLine()
+    printer.alignCenter()
+    printer.bold(true)
+    printer.println('SECTION-WISE')
+    printer.bold(false)
+    printer.alignLeft()
+    let currentSection = ''
+    let sectionQty = 0
+    let sectionRevenue = 0
+    const flushSection = (): void => {
+      if (currentSection !== '') {
+        printer.bold(true)
+        printer.println(padRow('  ' + currentSection + ' Total:', String(sectionQty) + ' / ' + money(sectionRevenue), L))
+        printer.bold(false)
+      }
+    }
+    for (const row of report.bySection) {
+      if (row.sectionName !== currentSection) {
+        flushSection()
+        currentSection = row.sectionName
+        sectionQty = 0
+        sectionRevenue = 0
+        printer.drawLine()
+        printer.bold(true)
+        printer.println('[ ' + currentSection + ' ]')
+        printer.println(itemHeader(L))
+        printer.bold(false)
+      }
+      sectionQty += row.quantity
+      sectionRevenue += row.revenue
+      const name = row.variantName ? row.productName + ' (' + row.variantName + ')' : row.productName
+      if (hasUrdu(name)) {
+        const buf = renderItemRow({
+          name,
+          qty: row.quantity,
+          amount: money(row.revenue),
+          widthDots: L.width * 12,
+          fontSize: 28
+        })
+        await printer.printImageBuffer(buf)
+      } else {
+        printer.println(itemLine(name, row.quantity, money(row.revenue), L))
+      }
+    }
+    flushSection()
   }
   printer.drawLine()
 

@@ -18,6 +18,8 @@ asarUnpack:
   - node_modules/electron-pos-printer/**
   - node_modules/canvas/**
   - node_modules/winrawprinter/**
+  - node_modules/sharp/**
+  - node_modules/@img/**
 win:
   executableName: RestaurantPOS
   icon: build/icon.ico
