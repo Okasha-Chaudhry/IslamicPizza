@@ -47,6 +47,7 @@ export async function printReport(report: {
   }
   popular: { productName: string; variantName: string | null; quantity: number; revenue: number }[]
   bySection?: { sectionName: string; productName: string; variantName: string | null; quantity: number; revenue: number }[]
+  sectionSummaryOnly?: boolean
 }): Promise<void> {
   const settings = getSettings()
   await printReportEscpos(report, settings)

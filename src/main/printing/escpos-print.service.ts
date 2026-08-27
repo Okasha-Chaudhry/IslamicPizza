@@ -57,7 +57,7 @@ function userImagePath(stored: string): string {
 
 // Feed a few lines then full-cut. More reliable than .cut() on some printers.
 function cutPaper(printer: ThermalPrinter): void {
-  printer.add(Buffer.from([0x0a, 0x0a, 0x0a, 0x0a])) // feed 4 lines
+  printer.add(Buffer.from([0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a])) // feed 6 lines (keeps last item clear of the cut)
   printer.add(Buffer.from([0x1d, 0x56, 0x00])) // GS V 0 = full cut
 }
 
@@ -79,23 +79,23 @@ function makePrinter(width: number): ThermalPrinter {
   return printer
 }
 
+
 async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
   if (!printerName) throw new Error('No printer selected in Settings')
   const logFile = join(app.getPath('userData'), 'print-log.txt')
   const stamp = new Date().toISOString()
-  // Share the printer (idempotent) and copy raw bytes to its share via UNC.
-  // This is binary-safe and needs no native module or runtime compile,
-  // so it works on any Windows PC (even unactivated / no .NET SDK).
   const shareName = 'POS_' + printerName.replace(/[^A-Za-z0-9]/g, '')
   const tmpFile = join(tmpdir(), 'escpos-' + Date.now() + '.prn')
   try {
     writeFileSync(tmpFile, buffer)
-    // Ensure the printer is shared (ignore error if already shared).
-    await runCmd('powershell', ['-NoProfile', '-Command',
-      'Set-Printer -Name "' + printerName + '" -Shared $true -ShareName "' + shareName + '" -ErrorAction SilentlyContinue'])
-    // Copy the raw file to the printer share.
+    const q = String.fromCharCode(39)
+    const nameEsc = printerName.split(q).join(q + q)
+    const psShare =
+      '$p=Get-WmiObject Win32_Printer -Filter ' + q + 'Name=' + q + q + nameEsc + q + q + q + '; ' +
+      'if($p){ if(-not $p.Shared){ $p.Shared=$true; $p.ShareName=' + q + shareName + q + '; $p.Put() | Out-Null } }'
+    await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psShare])
     await runCmd('cmd', ['/c', 'copy', '/b', tmpFile, '\\\\localhost\\' + shareName])
-    try { appendFileSync(logFile, stamp + ' printed ' + buffer.length + ' bytes via share "' + shareName + '" OK\n') } catch { /* ignore */ }
+    try { appendFileSync(logFile, stamp + ' printed ' + buffer.length + ' bytes via "' + shareName + '" OK\n') } catch { /* ignore */ }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     try { appendFileSync(logFile, stamp + ' PRINT ERROR: ' + msg + '\n') } catch { /* ignore */ }
@@ -371,6 +371,7 @@ export async function printReportEscpos(
     }
     popular: { productName: string; variantName: string | null; quantity: number; revenue: number }[]
     bySection?: { sectionName: string; productName: string; variantName: string | null; quantity: number; revenue: number }[]
+    sectionSummaryOnly?: boolean
   },
   settings: AppSettings
 ): Promise<void> {
@@ -398,6 +399,32 @@ export async function printReportEscpos(
   printer.println(padRow('Cancelled:', String(s.cancelledOrders), L))
   printer.drawLine()
 
+  if (report.sectionSummaryOnly && report.bySection && report.bySection.length > 0) {
+    const totals = new Map<string, { qty: number; amt: number }>()
+    for (const row of report.bySection) {
+      const t = totals.get(row.sectionName) ?? { qty: 0, amt: 0 }
+      t.qty += row.quantity
+      t.amt += row.revenue
+      totals.set(row.sectionName, t)
+    }
+    printer.drawLine()
+    for (const [section, t] of totals) {
+      printer.alignCenter()
+      printer.bold(true)
+      printer.setTextSize(1, 1)
+      printer.println(section)
+      printer.setTextNormal()
+      printer.bold(false)
+      printer.println('qty ' + t.qty + '   amt ' + money(t.amt))
+      printer.newLine()
+    }
+    printer.drawLine()
+    printer.alignCenter()
+    printer.println('Printed: ' + new Date().toLocaleString())
+    cutPaper(printer)
+    await sendRaw(settings.defaultPrinter, printer.getBuffer())
+    return
+  }
   printer.bold(true)
   printer.println('TOP ITEMS')
   printer.println(itemHeader(L))

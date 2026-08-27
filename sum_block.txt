@@ -1,0 +1,26 @@
+﻿  if (report.sectionSummaryOnly && report.bySection && report.bySection.length > 0) {
+    const totals = new Map<string, { qty: number; amt: number }>()
+    for (const row of report.bySection) {
+      const t = totals.get(row.sectionName) ?? { qty: 0, amt: 0 }
+      t.qty += row.quantity
+      t.amt += row.revenue
+      totals.set(row.sectionName, t)
+    }
+    printer.drawLine()
+    for (const [section, t] of totals) {
+      printer.alignCenter()
+      printer.bold(true)
+      printer.setTextSize(1, 1)
+      printer.println(section)
+      printer.setTextNormal()
+      printer.bold(false)
+      printer.println('qty ' + t.qty + '   amt ' + money(t.amt))
+      printer.newLine()
+    }
+    printer.drawLine()
+    printer.alignCenter()
+    printer.println('Printed: ' + new Date().toLocaleString())
+    cutPaper(printer)
+    await sendRaw(settings.defaultPrinter, printer.getBuffer())
+    return
+  }
