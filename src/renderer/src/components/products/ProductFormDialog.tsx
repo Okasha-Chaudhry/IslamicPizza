@@ -51,6 +51,29 @@ interface Props {
   onSaved: () => void
 }
 
+const URDU_MAP: Record<string, string> = {
+  kh: 'کھ', gh: 'گھ', ch: 'چ', sh: 'ش', ph: 'پھ', th: 'تھ', bh: 'بھ',
+  dh: 'دھ', rh: 'رھ', aa: 'آ', ee: 'ی', oo: 'و',
+  a: 'ا', b: 'ب', c: 'ک', d: 'د', e: 'ی', f: 'ف', g: 'گ', h: 'ہ',
+  i: 'ی', j: 'ج', k: 'ک', l: 'ل', m: 'م', n: 'ن', o: 'و', p: 'پ',
+  q: 'ق', r: 'ر', s: 'س', t: 'ت', u: 'و', v: 'و', w: 'و', x: 'کس',
+  y: 'ی', z: 'ز', ' ': ' '
+}
+
+function romanToUrdu(text: string): string {
+  let out = ''
+  let i = 0
+  const lower = text.toLowerCase()
+  while (i < lower.length) {
+    const two = lower.substr(i, 2)
+    if (URDU_MAP[two]) { out += URDU_MAP[two]; i += 2; continue }
+    const one = lower[i]
+    out += URDU_MAP[one] ?? one
+    i += 1
+  }
+  return out
+}
+
 export default function ProductFormDialog({
   open,
   onOpenChange,
@@ -120,7 +143,18 @@ export default function ProductFormDialog({
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Product Name</Label>
-            <Input id="name" className="h-11" {...form.register('name')} autoFocus />
+            <div className="flex gap-2">
+              <Input id="name" className="h-11 flex-1" {...form.register('name')} autoFocus />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 shrink-0"
+                onClick={() => form.setValue('name', romanToUrdu(form.getValues('name')))}
+                title="Convert typed English to Urdu"
+              >
+                → اردو
+              </Button>
+            </div>
             {form.formState.errors.name && (
               <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
