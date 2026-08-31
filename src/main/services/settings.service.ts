@@ -36,7 +36,10 @@ export function getSettings(): AppSettings {
     value: string
   }[]
   const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]))
-  return { ...DEFAULTS, ...stored } as AppSettings
+  const merged = { ...DEFAULTS, ...stored } as Record<string, unknown>
+  // DB stores everything as text; coerce numeric fields back to numbers.
+  if (merged.charsPerLine !== undefined) merged.charsPerLine = Number(merged.charsPerLine) || 0
+  return merged as unknown as AppSettings
 }
 
 export function saveSettings(input: Partial<AppSettings>): AppSettings {

@@ -27,6 +27,7 @@ $m = (Get-Content .\src\main\services\settings.service.ts -Raw -Encoding UTF8) -
 $m = $m.Replace("  restaurantName: 'My Restaurant',", "  restaurantName: 'Islamic Pizza & Fast Food',")
 $m = $m.Replace("  address: '',", "  address: 'Muqabil Allah Wali Market, Jatoi Road, Shehar Sultan',")
 $m = $m.Replace("  phone: '',", "  phone: '0305-1415678 / 0306-1415678',")
+$m = $m.Replace("  charsPerLine: 0,", "  charsPerLine: 46,")
 [System.IO.File]::WriteAllText("$PSScriptRoot\src\main\services\settings.service.ts", $m)
 
 Write-Host "== Building ==" -ForegroundColor Cyan

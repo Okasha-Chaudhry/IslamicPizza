@@ -57,7 +57,7 @@ function userImagePath(stored: string): string {
 
 // Feed a few lines then full-cut. More reliable than .cut() on some printers.
 function cutPaper(printer: ThermalPrinter): void {
-  printer.add(Buffer.from([0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a])) // feed 6 lines (keeps last item clear of the cut)
+  printer.add(Buffer.from([0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a])) // feed 8 lines (keeps last item clear of the cut)
   printer.add(Buffer.from([0x1d, 0x56, 0x00])) // GS V 0 = full cut
 }
 
@@ -76,6 +76,7 @@ function makePrinter(width: number): ThermalPrinter {
   printer.add(Buffer.from([0x1b, 0x40])) // ESC @  (initialize)
   printer.add(Buffer.from([0x1b, 0x21, 0x00])) // ESC ! 0 (Font A, no bold/double)
   printer.add(Buffer.from([0x1b, 0x20, 0x00])) // ESC SP 0 (character spacing = 0)
+  printer.add(Buffer.from([0x0a, 0x0a])) // 2-line lead-in so the top isn't clipped by the previous cut
   return printer
 }
 
