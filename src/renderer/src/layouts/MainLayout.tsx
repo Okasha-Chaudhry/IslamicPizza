@@ -31,6 +31,7 @@ const navItems: { to: string; label: string; icon: typeof LayoutDashboard; highl
   { to: '/kitchen-sections', label: 'Kitchen Sections', icon: FolderOpen, adminOnly: true },
   { to: '/tables', label: 'Tables', icon: Table2, adminOnly: true },
   { to: '/waiters', label: 'Waiters', icon: Users, adminOnly: true },
+  { to: '/day-close', label: 'Day Close', icon: BarChart3, adminOnly: true },
   { to: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },
   { to: '/expenses', label: 'Expenses', icon: Wallet, adminOnly: true },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, adminOnly: true }

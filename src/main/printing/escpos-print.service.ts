@@ -4,7 +4,7 @@ import { join } from 'path'
 import { existsSync, appendFileSync, writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { execFile } from 'child_process'
-import type { OrderWithItems, AppSettings } from '../../shared/types'
+import type { OrderWithItems, AppSettings, BusinessDay } from '../../shared/types'
 import { getSettings } from '../services/settings.service'
 import { getDb } from '../db'
 import { products, kitchenSections } from '../db/schema'
@@ -544,6 +544,49 @@ export async function rawTestPrint(text: string): Promise<void> {
   const L = layout(settings)
   const printer = makePrinter(L.width)
   for (const line of text.split('\n')) printer.println(line)
+  cutPaper(printer)
+  await sendRaw(settings.defaultPrinter, printer.getBuffer())
+}
+export async function printClosingEscpos(day: BusinessDay, settings: AppSettings): Promise<void> {
+  const L = layout(settings)
+  const printer = makePrinter(L.width)
+
+  printer.alignCenter()
+  printer.bold(true)
+  printer.println('Z-REPORT / DAY CLOSE')
+  printer.println(settings.restaurantName || 'Restaurant')
+  printer.bold(false)
+  printer.println('Z-Report #' + (day.zNumber ?? 0))
+  printer.drawLine()
+
+  printer.alignLeft()
+  printer.println(padRow('Opened:', day.openedAt, L))
+  printer.println(padRow('Closed:', day.closedAt ?? '', L))
+  printer.drawLine()
+  printer.println(padRow('Total Orders:', String(day.totalOrders), L))
+  printer.println(padRow('Paid Orders:', String(day.paidOrders), L))
+  printer.bold(true)
+  printer.println(padRow('Revenue:', money(day.totalRevenue), L))
+  printer.bold(false)
+  printer.println(padRow('Discounts:', money(day.totalDiscount), L))
+  printer.drawLine()
+  printer.println(padRow('Opening Float:', money(day.openingFloat), L))
+  printer.println(padRow('Expected Cash:', money(day.expectedCash), L))
+  printer.println(padRow('Counted Cash:', money(day.countedCash ?? 0), L))
+  printer.bold(true)
+  printer.setTextSize(1, 1)
+  const diff = day.cashDifference ?? 0
+  const diffLabel = diff === 0 ? 'BALANCED' : diff > 0 ? 'OVER' : 'SHORT'
+  printer.println(padRow('Difference:', money(diff) + ' ' + diffLabel, L))
+  printer.setTextNormal()
+  printer.bold(false)
+  if (day.note) {
+    printer.drawLine()
+    printer.println('Note: ' + day.note)
+  }
+  printer.drawLine()
+  printer.alignCenter()
+  printer.println('Printed: ' + new Date().toLocaleString())
   cutPaper(printer)
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }

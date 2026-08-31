@@ -75,3 +75,37 @@ export function renderItemRow(opts: {
 
   return canvas.toBuffer('image/png')
 }
+
+export function renderKitchenRow(opts: {
+  name: string
+  qty: number | string
+  rate?: string
+  amount?: string
+  widthDots: number
+  fontSize?: number
+}): Buffer {
+  ensureFont()
+  const { name, qty, rate, amount, widthDots } = opts
+  const fontSize = opts.fontSize ?? 26
+  const height = Math.round(fontSize * 1.55)
+  const canvas = createCanvas(widthDots, height)
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = 'white'
+  ctx.fillRect(0, 0, widthDots, height)
+  ctx.fillStyle = 'black'
+  const y = Math.round(height * 0.74)
+  const qtyX = Math.round(widthDots * 0.60)
+  const rateX = Math.round(widthDots * 0.78)
+  const amtX = widthDots - 8
+  ctx.font = 'bold ' + fontSize + 'px NotoUrdu'
+  ctx.direction = 'rtl'
+  ctx.textAlign = 'left'
+  ctx.fillText(name, 8, y)
+  ctx.font = 'bold ' + Math.round(fontSize * 0.9) + 'px sans-serif'
+  ctx.direction = 'ltr'
+  ctx.textAlign = 'center'
+  ctx.fillText(String(qty), qtyX, y)
+  if (rate) { ctx.textAlign = 'center'; ctx.fillText(rate, rateX, y) }
+  if (amount) { ctx.textAlign = 'right'; ctx.fillText(amount, amtX, y) }
+  return canvas.toBuffer('image/png')
+}

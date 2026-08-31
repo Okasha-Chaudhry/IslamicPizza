@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   ApiResult,
+  BusinessDay,
+  CurrentDayTotals,
   Category,
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -130,8 +132,18 @@ const api = {
     sales: (filter: { from: string; to: string }): Promise<ApiResult<SalesReport>> =>
       ipcRenderer.invoke('reports:sales', filter)
   },
+  closing: {
+    current: (): Promise<ApiResult<CurrentDayTotals>> => ipcRenderer.invoke('closing:current'),
+    open: (openingFloat: number): Promise<ApiResult<BusinessDay>> =>
+      ipcRenderer.invoke('closing:open', openingFloat),
+    close: (countedCash: number, note?: string): Promise<ApiResult<BusinessDay>> =>
+      ipcRenderer.invoke('closing:close', countedCash, note),
+    history: (limit?: number): Promise<ApiResult<BusinessDay[]>> =>
+      ipcRenderer.invoke('closing:history', limit)
+  },
   print: {
     raw: (text: string): Promise<ApiResult<void>> => ipcRenderer.invoke('print:raw', text),
+    closing: (day: BusinessDay): Promise<ApiResult<void>> => ipcRenderer.invoke('print:closing', day),
     test: (): Promise<ApiResult<void>> => ipcRenderer.invoke('print:test'),
     report: (report: SalesReport): Promise<ApiResult<void>> => ipcRenderer.invoke('print:report', report),
     receipt: (order: OrderWithItems): Promise<ApiResult<void>> =>

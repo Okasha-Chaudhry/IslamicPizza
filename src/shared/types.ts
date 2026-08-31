@@ -305,3 +305,29 @@ export interface ApiResult<T> {
   data?: T
   error?: string
 }
+export interface BusinessDay {
+  id: number
+  openedAt: string
+  closedAt: string | null
+  openingFloat: number
+  status: 'open' | 'closed'
+  zNumber: number | null
+  totalOrders: number
+  paidOrders: number
+  totalRevenue: number
+  totalDiscount: number
+  expectedCash: number
+  countedCash: number | null
+  cashDifference: number | null
+  note: string | null
+}
+
+export interface CurrentDayTotals {
+  day: BusinessDay | null
+  totalOrders: number
+  paidOrders: number
+  pendingOrders: number
+  totalRevenue: number
+  totalDiscount: number
+  expectedCash: number
+}

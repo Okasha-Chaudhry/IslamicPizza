@@ -21,6 +21,8 @@ function nextOrderNumber(): string {
   return `${datePart}-${String(row.c + 1).padStart(3, '0')}`
 }
 
+import { getCurrentDay } from './closing.service'
+
 export function createOrder(input: CreateOrderInput): OrderWithItems {
   if (!input.items || input.items.length === 0) throw new Error('Order has no items')
   if (input.orderType === 'dine_in' && !input.tableId) throw new Error('Select a table for dine-in')
@@ -71,6 +73,7 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
       .insert(orders)
       .values({
         userId: input.userId ?? null,
+        businessDayId: getCurrentDay()?.id ?? null,
         orderNumber: nextOrderNumber(),
         orderType: input.orderType,
         tableId: input.orderType === 'dine_in' ? (input.tableId ?? null) : null,

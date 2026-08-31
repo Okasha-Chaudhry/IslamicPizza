@@ -3,6 +3,7 @@ import {
   printKitchenEscpos,
   testPrintEscpos,
   printReportEscpos,
+  printClosingEscpos,
   rawTestPrint as rawTestPrintEscpos
 } from './escpos-print.service'
 import { eq } from 'drizzle-orm'
@@ -69,4 +70,9 @@ export async function printKitchenSlip(order: OrderWithItems): Promise<void> {
 }
 export async function rawTestPrint(text: string): Promise<void> {
   await rawTestPrintEscpos(text)
+}
+
+export async function printClosing(day: import('../../shared/types').BusinessDay): Promise<void> {
+  const settings = getSettings()
+  await printClosingEscpos(day, settings)
 }

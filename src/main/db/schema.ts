@@ -75,12 +75,30 @@ export const orders = sqliteTable('orders', {
   deliveryCharge: integer('delivery_charge').notNull().default(0),
   taxAmount: integer('tax_amount').notNull().default(0),
   total: integer('total').notNull().default(0),
+  businessDayId: integer('business_day_id'),
   note: text('note'),
   userId: integer('user_id').references(() => users.id),
   customerPhone: text('customer_phone'),
   customerAddress: text('customer_address'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`),
   paidAt: text('paid_at')
+})
+
+export const businessDays = sqliteTable('business_days', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  openedAt: text('opened_at').notNull().default(sql`(datetime('now','localtime'))`),
+  closedAt: text('closed_at'),
+  openingFloat: integer('opening_float').notNull().default(0),
+  status: text('status', { enum: ['open', 'closed'] }).notNull().default('open'),
+  zNumber: integer('z_number'),
+  totalOrders: integer('total_orders').notNull().default(0),
+  paidOrders: integer('paid_orders').notNull().default(0),
+  totalRevenue: integer('total_revenue').notNull().default(0),
+  totalDiscount: integer('total_discount').notNull().default(0),
+  expectedCash: integer('expected_cash').notNull().default(0),
+  countedCash: integer('counted_cash'),
+  cashDifference: integer('cash_difference'),
+  note: text('note')
 })
 
 export const orderItems = sqliteTable('order_items', {

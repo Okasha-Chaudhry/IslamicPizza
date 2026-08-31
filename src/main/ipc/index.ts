@@ -8,6 +8,7 @@ import * as ordersService from '../services/orders.service'
 import * as settingsService from '../services/settings.service'
 import * as printService from '../printing/print.service'
 import * as reportsService from '../services/reports.service'
+import * as closingService from '../services/closing.service'
 import * as backupService from '../services/backup.service'
 import * as usersService from '../services/users.service'
 import * as licenseService from '../services/license.service'
@@ -114,6 +115,11 @@ export function registerIpcHandlers(): void {
 
   handle('reports:sales', reportsService.getSalesReport)
 
+  handle('closing:current', closingService.getCurrentDayTotals)
+  handle('closing:open', closingService.openDay)
+  handle('closing:close', closingService.closeDay)
+  handle('closing:history', closingService.getClosingHistory)
+
   handle('expenses:listItems', expensesService.listExpenseItems)
   handle('expenses:createItem', expensesService.createExpenseItem)
   handle('expenses:updateItem', expensesService.updateExpenseItem)
@@ -144,6 +150,15 @@ export function registerIpcHandlers(): void {
   })
 
   handle('backup:check', backupService.checkIntegrity)
+
+  ipcMain.handle('print:closing', async (_e, day) => {
+    try {
+      await printService.printClosing(day)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Print failed' }
+    }
+  })
 
   ipcMain.handle('print:report', async (_e, report) => {
     try {

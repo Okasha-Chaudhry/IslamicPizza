@@ -15,6 +15,7 @@ import KitchenSections from '@/pages/KitchenSections'
 import Tables from '@/pages/Tables'
 import Waiters from '@/pages/Waiters'
 import Reports from '@/pages/Reports'
+import DayClose from '@/pages/DayClose'
 import Expenses from '@/pages/Expenses'
 import Settings from '@/pages/Settings'
 
@@ -69,6 +70,7 @@ function App(): React.JSX.Element {
               <Route path="/" element={<Dashboard />} />
               <Route path="/new-order" element={<NewOrder />} />
               <Route path="/orders" element={<Orders />} />
+              <Route path="/day-close" element={<DayClose />} />
               <Route path="/products" element={<AdminOnly><Products /></AdminOnly>} />
               <Route path="/categories" element={<AdminOnly><Categories /></AdminOnly>} />`n              <Route path="/kitchen-sections" element={<AdminOnly><KitchenSections /></AdminOnly>} />
               <Route path="/tables" element={<AdminOnly><Tables /></AdminOnly>} />

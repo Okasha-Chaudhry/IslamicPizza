@@ -155,6 +155,26 @@ const MIGRATIONS: string[] = [
   // v7 - platter contents (items inside a platter, shown on slips/receipt)
   `
   ALTER TABLE products ADD COLUMN platter_contents TEXT;
+  `,
+  // v8 - day closing / business days (day-end reconciliation)
+  `
+  CREATE TABLE IF NOT EXISTS business_days (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    opened_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    closed_at TEXT,
+    opening_float INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'open',
+    z_number INTEGER,
+    total_orders INTEGER NOT NULL DEFAULT 0,
+    paid_orders INTEGER NOT NULL DEFAULT 0,
+    total_revenue INTEGER NOT NULL DEFAULT 0,
+    total_discount INTEGER NOT NULL DEFAULT 0,
+    expected_cash INTEGER NOT NULL DEFAULT 0,
+    counted_cash INTEGER,
+    cash_difference INTEGER,
+    note TEXT
+  );
+  ALTER TABLE orders ADD COLUMN business_day_id INTEGER REFERENCES business_days(id);
   `
 ]
 
