@@ -84,24 +84,37 @@ async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
   if (!printerName) throw new Error('No printer selected in Settings')
   const logFile = join(app.getPath('userData'), 'print-log.txt')
   const stamp = new Date().toISOString()
-  const shareName = 'POS_' + printerName.replace(/[^A-Za-z0-9]/g, '')
-  const tmpFile = join(tmpdir(), 'escpos-' + Date.now() + '.prn')
   try {
-    writeFileSync(tmpFile, buffer)
-    const q = String.fromCharCode(39)
-    const nameEsc = printerName.split(q).join(q + q)
-    const psShare =
-      '$p=Get-WmiObject Win32_Printer -Filter ' + q + 'Name=' + q + q + nameEsc + q + q + q + '; ' +
-      'if($p){ if(-not $p.Shared){ $p.Shared=$true; $p.ShareName=' + q + shareName + q + '; $p.Put() | Out-Null } }'
-    await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psShare])
-    await runCmd('cmd', ['/c', 'copy', '/b', tmpFile, '\\\\localhost\\' + shareName])
-    try { appendFileSync(logFile, stamp + ' printed ' + buffer.length + ' bytes via "' + shareName + '" OK\n') } catch { /* ignore */ }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    try { appendFileSync(logFile, stamp + ' PRINT ERROR: ' + msg + '\n') } catch { /* ignore */ }
-    throw new Error('Print failed: ' + msg)
-  } finally {
-    try { unlinkSync(tmpFile) } catch { /* ignore */ }
+    // Primary: winspool WritePrinter via prebuilt native addon (full-dark, binary-safe,
+    // no admin). Works on standard printers (e.g. Bixolon).
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const rawprint = require('winrawprinter')
+    await rawprint.PrintBufferToPrinterAsync(buffer, printerName)
+    try { appendFileSync(logFile, stamp + ' printed ' + buffer.length + ' bytes to "' + printerName + '" via winraw OK\n') } catch { /* ignore */ }
+  } catch (winrawErr) {
+    // Fallback: share the printer via WMI (no admin) and copy raw bytes to the share.
+    // Used on printers/PCs where winspool WritePrinter returns FALSE (e.g. some POS-80C).
+    const wmsg = winrawErr instanceof Error ? winrawErr.message : String(winrawErr)
+    try { appendFileSync(logFile, stamp + ' winraw failed (' + wmsg + '), trying share...\n') } catch { /* ignore */ }
+    const shareName = 'POS_' + printerName.replace(/[^A-Za-z0-9]/g, '')
+    const tmpFile = join(tmpdir(), 'escpos-' + Date.now() + '.prn')
+    try {
+      writeFileSync(tmpFile, buffer)
+      const q = String.fromCharCode(39)
+      const nameEsc = printerName.split(q).join(q + q)
+      const psShare =
+        '$p=Get-WmiObject Win32_Printer -Filter ' + q + 'Name=' + q + q + nameEsc + q + q + q + '; ' +
+        'if($p){ if(-not $p.Shared){ $p.Shared=$true; $p.ShareName=' + q + shareName + q + '; $p.Put() | Out-Null } }'
+      await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psShare])
+      await runCmd('cmd', ['/c', 'copy', '/b', tmpFile, '\\\\localhost\\' + shareName])
+      try { appendFileSync(logFile, stamp + ' printed via share "' + shareName + '" OK\n') } catch { /* ignore */ }
+    } catch (shareErr) {
+      const smsg = shareErr instanceof Error ? shareErr.message : String(shareErr)
+      try { appendFileSync(logFile, stamp + ' PRINT ERROR (both): ' + smsg + '\n') } catch { /* ignore */ }
+      throw new Error('Print failed: ' + smsg)
+    } finally {
+      try { unlinkSync(tmpFile) } catch { /* ignore */ }
+    }
   }
 }
 
