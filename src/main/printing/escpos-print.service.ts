@@ -22,8 +22,11 @@ interface Layout {
 function layout(settings: AppSettings): Layout {
   // If the client set an explicit characters-per-line (for a printer whose
   // width differs from the 48/32 norm), use it. 0 = auto from paper width.
-  const override = settings.charsPerLine
-  const width = override && override > 0 ? override : settings.receiptWidth === '58' ? 32 : 48
+  // Fixed widths: 48 chars for 80mm, 32 for 58mm. This matches the printer's
+  // real character grid, so headers and item rows stay on one line.
+  // Font A + no magnification (set in makePrinter) gives 48 cols on 80mm, 32 on 58mm.
+  const override = Number(settings.charsPerLine) || 0
+  const width = override > 0 ? override : settings.receiptWidth === '58' ? 32 : 48
   // Scale the qty/amount columns to the width so 58mm, 80mm, and odd widths all align.
   const amtW = Math.max(6, Math.round(width * 0.21))
   const qtyW = Math.max(3, Math.round(width * 0.1))
@@ -36,6 +39,13 @@ function resourcePath(file: string): string {
   const unpacked = join(process.resourcesPath, 'app.asar.unpacked', 'resources', file)
   if (existsSync(unpacked)) return unpacked
   return join(process.resourcesPath, 'resources', file)
+}
+
+// Feed past the cutter before cutting, so the last printed line is never
+// left below the blade (which would appear on top of the next receipt).
+function cutPaper(printer: ThermalPrinter): void {
+  printer.add(Buffer.from([0x1b, 0x64, 0x08]))
+  printer.add(Buffer.from([0x1d, 0x56, 0x42, 0x00]))
 }
 
 function makePrinter(width: number): ThermalPrinter {
@@ -53,6 +63,11 @@ function makePrinter(width: number): ThermalPrinter {
   printer.add(Buffer.from([0x1b, 0x40])) // ESC @  (initialize)
   printer.add(Buffer.from([0x1b, 0x21, 0x00])) // ESC ! 0 (Font A, no bold/double)
   printer.add(Buffer.from([0x1b, 0x20, 0x00])) // ESC SP 0 (character spacing = 0)
+  printer.add(Buffer.from([0x1b, 0x4d, 0x00])) // ESC M 0 (Font A, 12x24 - full 48 cols on 80mm)
+  printer.add(Buffer.from([0x1d, 0x21, 0x00])) // GS ! 0 (no double width/height magnification)
+  // GS L / GS W removed: printer already uses full paper width by default
+  // (confirmed via old vendor POS + physical inspection). These commands
+  // were clamping the print processor's area to 384 dots (58mm).
   return printer
 }
 
@@ -185,9 +200,7 @@ export async function printReceiptEscpos(
   printer.drawLine()
 
   printer.bold(true)
-  printer.add(Buffer.from([0x1b, 0x47, 0x01]))
   printer.println(itemHeader(L))
-  printer.add(Buffer.from([0x1b, 0x47, 0x00]))
   printer.bold(false)
   printer.drawLine()
   for (const item of order.items) {
@@ -222,7 +235,7 @@ export async function printReceiptEscpos(
     printer.println('Powered by XIOM')
   }
   printer.println('0310-1617048')
-  printer.cut()
+  cutPaper(printer)
 
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
@@ -261,7 +274,7 @@ export async function printKitchenEscpos(
     printer.bold(false)
     if (item.note) printer.println(`    * ${item.note}`)
   }
-  printer.cut()
+  cutPaper(printer)
 
   await sendRaw(printerName, printer.getBuffer())
 }
@@ -320,7 +333,7 @@ export async function printReportEscpos(
 
   printer.alignCenter()
   printer.println(`Printed: ${new Date().toLocaleString()}`)
-  printer.cut()
+  cutPaper(printer)
 
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
@@ -359,7 +372,7 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
   printer.alignCenter()
   printer.println('If columns line up, printer is OK')
   printer.println('Powered by XIOM')
-  printer.cut()
+  cutPaper(printer)
   await sendRaw(printerName, printer.getBuffer())
 }
 
@@ -368,6 +381,6 @@ export async function rawTestPrint(text: string): Promise<void> {
   const L = layout(settings)
   const printer = makePrinter(L.width)
   for (const line of text.split('\n')) printer.println(line)
-  printer.cut()
+  cutPaper(printer)
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
