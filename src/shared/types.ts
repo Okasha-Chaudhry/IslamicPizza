@@ -158,7 +158,6 @@ export interface AppSettings {
   defaultPrinter: string
   kitchenPrinter: string
   receiptWidth: '58' | '80' | 'A4'
-  charsPerLine: number
   receiptLogo: string
   paymentQr: string
 }

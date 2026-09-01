@@ -1,64 +1,52 @@
-import { BrowserWindow, dialog } from 'electron'
+﻿import { BrowserWindow, dialog } from 'electron'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { restaurantTables, waiters, users } from '../db/schema'
 import { getSettings } from '../services/settings.service'
 import { buildReceiptHtml } from './receipt-template'
-import { rawTestPrint as rawTestPrintEscpos } from './escpos-print.service'
 import type { OrderWithItems } from '../../shared/types'
 
-// HTML/GDI printing. The printer renders this as graphics through the Windows
-// driver, exactly like the vendor POS (Crystal Reports) does. This is what
-// gives full paper width - raw ESC/POS text mode is clamped to 384 dots (58mm)
-// by this printer's firmware and no ESC/POS command can lift that.
-// No pageSize is set: the driver's own roll size (80 x 3276 mm) is used, which
-// also keeps older printers (BC-87AC) from rejecting the job and printing blank.
-function printHtml(html: string, printerName: string): Promise<void> {
+function printHtml(html: string, printerName: string, _pageWidthMm: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+    const win = new BrowserWindow({
+      show: false,
+      webPreferences: { sandbox: true }
+    })
+
     const cleanup = (): void => {
       if (!win.isDestroyed()) win.destroy()
     }
+
     win.webContents.on('did-finish-load', () => {
       win.webContents.print(
         {
           silent: true,
           deviceName: printerName || undefined,
           margins: { marginType: 'none' },
+          pageSize: { width: 80000, height: 297000 },
           scaleFactor: 100
         },
         (success, failureReason) => {
           cleanup()
           if (success) resolve()
           else {
-            dialog.showErrorBox(
-              'Print Failed',
-              `Printer: ${printerName || 'default'}\nReason: ${failureReason || 'unknown'}`
-            )
+            dialog.showErrorBox('Print Failed', `Printer: ${printerName || 'default'}\nReason: ${failureReason || 'unknown'}`)
             reject(new Error(failureReason || 'Print failed'))
           }
         }
       )
     })
+
     win.webContents.on('did-fail-load', (_e, _code, desc) => {
       cleanup()
       reject(new Error(`Failed to render receipt: ${desc}`))
     })
+
     void win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
   })
 }
 
-function pageWidthFor(receiptWidth: string): string {
-  if (receiptWidth === '58') return '48mm'
-  if (receiptWidth === '80') return '72mm'
-  return '190mm'
-}
-
-function resolveNames(order: OrderWithItems): {
-  tableName?: string
-  waiterName?: string
-  servedBy?: string
-} {
+function resolveNames(order: OrderWithItems): { tableName?: string; waiterName?: string; servedBy?: string } {
   const db = getDb()
   const out: { tableName?: string; waiterName?: string; servedBy?: string } = {}
   if (order.userId != null) {
@@ -76,52 +64,6 @@ function resolveNames(order: OrderWithItems): {
   return out
 }
 
-export async function printReceipt(order: OrderWithItems): Promise<void> {
-  const settings = getSettings()
-  const html = buildReceiptHtml(order, settings, 'receipt', resolveNames(order))
-  await printHtml(html, settings.defaultPrinter)
-}
-
-export async function printKitchenSlip(order: OrderWithItems): Promise<void> {
-  const settings = getSettings()
-  const html = buildReceiptHtml(order, settings, 'kitchen', resolveNames(order))
-  await printHtml(html, settings.kitchenPrinter || settings.defaultPrinter)
-}
-
-export async function printTest(): Promise<void> {
-  const settings = getSettings()
-  const pageWidth = pageWidthFor(settings.receiptWidth)
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', monospace; font-size: 11px; width: ${pageWidth}; padding: 1mm 0; color: #000; }
-    .c { text-align: center; }
-    .b { font-weight: bold; }
-    .rule { border-top: 1px dashed #000; margin: 2mm 0; }
-    .bar { border: 1px solid #000; height: 4mm; }
-    table { width: 100%; border-collapse: collapse; }
-    td { padding: 0.5mm 0; }
-    td.num { text-align: right; white-space: nowrap; padding-left: 2mm; }
-  </style></head><body>
-    <div class="c b">PRINTER TEST</div>
-    <div class="c">${settings.restaurantName}</div>
-    <div class="c">Paper: ${settings.receiptWidth}mm</div>
-    <div class="c">${new Date().toLocaleString()}</div>
-    <div class="rule"></div>
-    <div>Full width bar - should touch both edges:</div>
-    <div class="bar"></div>
-    <div class="rule"></div>
-    <table>
-      <tr class="b"><td>Item</td><td class="num">Qty</td><td class="num">Amount</td></tr>
-      <tr><td>Short item</td><td class="num">1</td><td class="num">Rs 250</td></tr>
-      <tr><td>A much longer product name that wraps</td><td class="num">2</td><td class="num">Rs 1500</td></tr>
-    </table>
-    <div class="rule"></div>
-    <div class="c">If the bar touches both edges, width is correct</div>
-    <div class="c">Powered by XIOM</div>
-  </body></html>`
-  await printHtml(html, settings.defaultPrinter)
-}
-
 export async function printReport(report: {
   from: string
   to: string
@@ -137,7 +79,8 @@ export async function printReport(report: {
   popular: { productName: string; variantName: string | null; quantity: number; revenue: number }[]
 }): Promise<void> {
   const settings = getSettings()
-  const pageWidth = pageWidthFor(settings.receiptWidth)
+  const widthMm = settings.receiptWidth === '58' ? 58 : settings.receiptWidth === '80' ? 80 : 210
+  const pageWidth = widthMm === 58 ? '44mm' : widthMm === 80 ? '64mm' : '190mm'
   const cur = settings.currency
   const s = report.summary
   const rangeLabel = report.from === report.to ? report.from : `${report.from} to ${report.to}`
@@ -151,8 +94,8 @@ export async function printReport(report: {
     .join('')
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', monospace; font-size: 11px; width: ${pageWidth}; padding: 1mm 0; color: #000; }
+    * { margin: 0; padding: 0; }
+    body { font-family: 'Courier New', monospace; font-size: 11px; width: ${pageWidth}; padding: 1mm 2mm 1mm 0; color: #000; }
     .c { text-align: center; }
     .b { font-weight: bold; }
     .big { font-size: 1.4em; }
@@ -182,9 +125,36 @@ export async function printReport(report: {
     <div class="rule"></div>
     <div class="c">Printed: ${new Date().toLocaleString()}</div>
   </body></html>`
-  await printHtml(html, settings.defaultPrinter)
+  await printHtml(html, settings.defaultPrinter, widthMm)
 }
 
-export async function rawTestPrint(text: string): Promise<void> {
-  await rawTestPrintEscpos(text)
+export async function printTest(): Promise<void> {
+  const settings = getSettings()
+  const widthMm = settings.receiptWidth === '58' ? 58 : settings.receiptWidth === '80' ? 80 : 210
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    body { font-family: 'Courier New', monospace; font-size: 12px; padding: 2mm; width: ${widthMm === 58 ? '44mm' : widthMm === 80 ? '64mm' : '190mm'}; }
+    .c { text-align: center; }
+  </style></head><body>
+    <div class="c"><b>PRINTER TEST</b></div>
+    <div class="c">${settings.restaurantName}</div>
+    <div class="c">${new Date().toLocaleString()}</div>
+    <div class="c">Printer: ${settings.defaultPrinter || 'System default'}</div>
+    <div class="c">--- If you can read this, printing works ---</div>
+  </body></html>`
+  await printHtml(html, settings.defaultPrinter, widthMm)
+}
+
+export async function printReceipt(order: OrderWithItems): Promise<void> {
+  const settings = getSettings()
+  const widthMm = settings.receiptWidth === '58' ? 58 : settings.receiptWidth === '80' ? 80 : 210
+  const html = buildReceiptHtml(order, settings, 'receipt', resolveNames(order))
+  await printHtml(html, settings.defaultPrinter, widthMm)
+}
+
+export async function printKitchenSlip(order: OrderWithItems): Promise<void> {
+  const settings = getSettings()
+  const widthMm = settings.receiptWidth === '58' ? 58 : settings.receiptWidth === '80' ? 80 : 210
+  const html = buildReceiptHtml(order, settings, 'kitchen', resolveNames(order))
+  const printer = settings.kitchenPrinter || settings.defaultPrinter
+  await printHtml(html, printer, widthMm)
 }

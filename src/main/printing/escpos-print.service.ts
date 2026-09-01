@@ -20,14 +20,10 @@ interface Layout {
 }
 
 function layout(settings: AppSettings): Layout {
-  // If the client set an explicit characters-per-line (for a printer whose
-  // width differs from the 48/32 norm), use it. 0 = auto from paper width.
-  // Fixed widths: 48 chars for 80mm, 32 for 58mm. This matches the printer's
-  // real character grid, so headers and item rows stay on one line.
-  // Font A + no magnification (set in makePrinter) gives 48 cols on 80mm, 32 on 58mm.
-  const override = Number(settings.charsPerLine) || 0
-  const width = override > 0 ? override : settings.receiptWidth === '58' ? 32 : 48
-  // Scale the qty/amount columns to the width so 58mm, 80mm, and odd widths all align.
+  // Fixed, calibrated widths for this printer (BIXOLON SRP-352plusIII).
+  // Measured directly with a ruler test print on 2026-09-01: 40 chars is the
+  // confirmed safe max on 80mm paper (48 wraps), 30 confirmed safe on 58mm.
+  const width = settings.receiptWidth === '58' ? 30 : 40
   const amtW = Math.max(6, Math.round(width * 0.21))
   const qtyW = Math.max(3, Math.round(width * 0.1))
   return { width, qtyW, amtW }
