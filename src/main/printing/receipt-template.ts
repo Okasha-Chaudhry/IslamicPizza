@@ -119,6 +119,8 @@ export function buildReceiptHtml(
     font-size: ${baseFont};
     color: #000;
     padding: 1mm 2mm 1mm 0;
+    font-weight: 600;
+    -webkit-font-smoothing: none;
   }
   .center { text-align: center; }
   .bold { font-weight: bold; }
