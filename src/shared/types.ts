@@ -86,7 +86,8 @@ export interface UpdateProductInput {
 }
 
 export type OrderType = 'dine_in' | 'take_away' | 'delivery'
-export type OrderStatus = 'pending' | 'kitchen_printed' | 'paid' | 'cancelled'
+export type OrderStatus = 'pending' | 'paid' | 'cancelled'
+export type OrderFilterTab = OrderStatus | 'all' | 'kitchen'
 
 export interface OrderItemInput {
   productId: number
@@ -142,10 +143,21 @@ export interface Order {
   customerAddress: string | null
   createdAt: string
   paidAt: string | null
+  kitchenPrintedAt: string | null
+  amountPaid: number
 }
 
 export interface OrderWithItems extends Order {
   items: OrderItem[]
+}
+
+export interface OrderPayment {
+  id: number
+  orderId: number
+  amount: number
+  method: string
+  note: string | null
+  createdAt: string
 }
 
 export interface AppSettings {

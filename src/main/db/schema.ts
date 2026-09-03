@@ -55,7 +55,7 @@ export const orders = sqliteTable('orders', {
   tableId: integer('table_id').references(() => restaurantTables.id),
   waiterId: integer('waiter_id').references(() => waiters.id),
   status: text('status', {
-    enum: ['pending', 'kitchen_printed', 'paid', 'cancelled']
+    enum: ['pending', 'paid', 'cancelled']
   })
     .notNull()
     .default('pending'),
@@ -70,7 +70,9 @@ export const orders = sqliteTable('orders', {
   customerPhone: text('customer_phone'),
   customerAddress: text('customer_address'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`),
-  paidAt: text('paid_at')
+  paidAt: text('paid_at'),
+  kitchenPrintedAt: text('kitchen_printed_at'),
+  amountPaid: integer('amount_paid').notNull().default(0)
 })
 
 export const orderItems = sqliteTable('order_items', {
@@ -132,4 +134,15 @@ export const customers = sqliteTable('customers', {
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()
+})
+
+export const orderPayments = sqliteTable('order_payments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  orderId: integer('order_id')
+    .notNull()
+    .references(() => orders.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(),
+  method: text('method').notNull().default('cash'),
+  note: text('note'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
 })

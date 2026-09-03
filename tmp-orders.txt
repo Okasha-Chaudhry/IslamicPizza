@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { Printer, ChefHat, Ban, CircleCheck, RefreshCw, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,49 +8,25 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useCartStore } from '@/stores/cart-store'
 import type { OrderWithItems, OrderStatus } from '../../../shared/types'
 
-type FilterTab = OrderStatus | 'all' | 'kitchen'
-
-const STATUS_TABS: { key: FilterTab; label: string }[] = [
+const STATUS_TABS: { key: OrderStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
-  { key: 'kitchen', label: 'Kitchen' },
+  { key: 'kitchen_printed', label: 'Kitchen' },
   { key: 'paid', label: 'Paid' },
   { key: 'cancelled', label: 'Cancelled' }
 ]
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
   pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  kitchen_printed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
   paid: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-}
-
-function owedOn(o: OrderWithItems): number {
-  return Math.max(0, o.total - o.amountPaid)
-}
-
-// A pending order can still be part-paid, and the kitchen slip is tracked
-// separately, so the badge has to describe both at once.
-function statusLabel(o: OrderWithItems): string {
-  if (o.status === 'pending' && o.amountPaid > 0) return `part paid (Rs ${owedOn(o)} due)`
-  if (o.status === 'pending' && o.kitchenPrintedAt) return 'pending (kitchen)'
-  return o.status
 }
 
 const TYPE_LABEL: Record<string, string> = {
   dine_in: 'Dine In',
   take_away: 'Take Away',
   delivery: 'Delivery'
-}
-
-function fmtTime(raw: string): string {
-  const t = raw.slice(11, 16)
-  const [hStr, min] = t.split(':')
-  let h = Number(hStr)
-  if (isNaN(h)) return t
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  h = h % 12
-  if (h === 0) h = 12
-  return `${h}:${min} ${ampm}`
 }
 
 function todayStr(): string {
@@ -61,8 +37,7 @@ function todayStr(): string {
 export default function Orders(): React.JSX.Element {
   const [orders, setOrders] = useState<OrderWithItems[]>([])
   const [date, setDate] = useState(todayStr())
-  const [status, setStatus] = useState<FilterTab>('all')
-  const [payAmount, setPayAmount] = useState('')
+  const [status, setStatus] = useState<OrderStatus | 'all'>('all')
   const [selected, setSelected] = useState<OrderWithItems | null>(null)
   const [msg, setMsg] = useState('')
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
@@ -88,23 +63,6 @@ export default function Orders(): React.JSX.Element {
     await refresh()
   }
 
-  async function submitPayment(order: OrderWithItems): Promise<void> {
-    setMsg('')
-    const amount = Math.round(Number(payAmount))
-    if (!amount || amount <= 0) {
-      setMsg('Enter a valid amount')
-      return
-    }
-    const res = await window.api.orders.addPayment({ orderId: order.id, amount })
-    if (!res.ok) {
-      setMsg(res.error ?? 'Payment failed')
-      return
-    }
-    setPayAmount('')
-    setMsg(`Rs ${amount} received`)
-    await refresh()
-  }
-
   async function reprint(order: OrderWithItems, kind: 'receipt' | 'kitchen'): Promise<void> {
     setMsg('')
     const res =
@@ -112,8 +70,8 @@ export default function Orders(): React.JSX.Element {
         ? await window.api.print.receipt(order)
         : await window.api.print.kitchen(order)
     setMsg(res.ok ? `${kind === 'receipt' ? 'Receipt' : 'Kitchen slip'} printed` : `Print failed: ${res.error}`)
-    if (kind === 'kitchen' && res.ok) {
-      await window.api.orders.markKitchenPrinted(order.id)
+    if (kind === 'kitchen' && res.ok && order.status === 'pending') {
+      await window.api.orders.updateStatus(order.id, 'kitchen_printed')
       await refresh()
     }
   }
@@ -157,7 +115,6 @@ export default function Orders(): React.JSX.Element {
                 <th className="h-10 px-3 font-medium">Order #</th>
                 <th className="h-10 px-3 font-medium">Time</th>
                 <th className="h-10 px-3 font-medium">Type</th>
-                <th className="h-10 px-3 font-medium">Address</th>
                 <th className="h-10 px-3 font-medium">Items</th>
                 <th className="h-10 px-3 text-right font-medium">Total</th>
                 <th className="h-10 px-3 font-medium">Status</th>
@@ -175,12 +132,9 @@ export default function Orders(): React.JSX.Element {
                 >
                   <td className="h-12 px-3 font-medium">{o.orderNumber}</td>
                   <td className="h-12 px-3 text-muted-foreground">
-                    {fmtTime(o.createdAt)}
+                    {o.createdAt.slice(11, 16)}
                   </td>
                   <td className="h-12 px-3">{TYPE_LABEL[o.orderType]}</td>
-                  <td className="h-12 max-w-40 truncate px-3 text-muted-foreground" title={o.customerAddress ?? ''}>
-                    {o.customerAddress ?? ''}
-                  </td>
                   <td className="h-12 px-3 text-muted-foreground">
                     {o.items.reduce((s, i) => s + i.quantity, 0)}
                   </td>
@@ -192,14 +146,14 @@ export default function Orders(): React.JSX.Element {
                         STATUS_STYLE[o.status]
                       )}
                     >
-                      {statusLabel(o)}
+                      {o.status.replace('_', ' ')}
                     </span>
                   </td>
                 </tr>
               ))}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
                     No orders for this date/filter
                   </td>
                 </tr>
@@ -221,7 +175,7 @@ export default function Orders(): React.JSX.Element {
                     STATUS_STYLE[selected.status]
                   )}
                 >
-                  {statusLabel(selected)}
+                  {selected.status.replace('_', ' ')}
                 </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -267,43 +221,10 @@ export default function Orders(): React.JSX.Element {
                   <span>Total</span>
                   <span>Rs {selected.total}</span>
                 </div>
-                {selected.amountPaid > 0 && (
-                  <div className="flex justify-between text-green-700 dark:text-green-400">
-                    <span>Paid</span>
-                    <span>Rs {selected.amountPaid}</span>
-                  </div>
-                )}
-                {selected.status !== 'cancelled' && owedOn(selected) > 0 && selected.amountPaid > 0 && (
-                  <div className="flex justify-between font-bold text-amber-700 dark:text-amber-400">
-                    <span>Remaining</span>
-                    <span>Rs {owedOn(selected)}</span>
-                  </div>
-                )}
               </div>
             </div>
 
             {msg && <p className="px-3 pb-1 text-sm">{msg}</p>}
-
-            {selected.status === 'pending' && (
-              <div className="flex items-end gap-2 border-t p-3">
-                <div className="flex-1 space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    Received now (Rs {owedOn(selected)} due)
-                  </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    className="h-11"
-                    placeholder="Amount"
-                    value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
-                  />
-                </div>
-                <Button className="h-11" onClick={() => void submitPayment(selected)}>
-                  <CircleCheck className="size-4" /> Add
-                </Button>
-              </div>
-            )}
 
             <div className="grid grid-cols-2 gap-2 border-t p-3">
               <Button variant="outline" className="h-11" onClick={() => void reprint(selected, 'receipt')}>
@@ -317,7 +238,7 @@ export default function Orders(): React.JSX.Element {
                   <CircleCheck className="size-4" /> Mark Paid
                 </Button>
               )}
-              {selected.status === 'pending' && (
+              {(selected.status === 'pending' || selected.status === 'kitchen_printed') && (
                 <Button
                   variant="outline"
                   className="h-11"

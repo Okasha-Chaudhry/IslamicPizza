@@ -6,8 +6,7 @@ import type {
   CreateOrderInput,
   OrderWithItems,
   OrderStatus,
-  OrderType,
-  OrderPayment
+  OrderType
 } from '../../shared/types'
 
 function nextOrderNumber(): string {
@@ -119,7 +118,7 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
 
 export interface OrderListFilter {
   date?: string // YYYY-MM-DD
-  status?: OrderStatus | 'all' | 'kitchen'
+  status?: OrderStatus | 'all'
 }
 
 export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
@@ -131,9 +130,7 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
     conditions.push(`date(created_at) = ?`)
     params.push(filter.date)
   }
-  if (filter.status === 'kitchen') {
-    conditions.push(`kitchen_printed_at IS NOT NULL AND status != 'cancelled'`)
-  } else if (filter.status && filter.status !== 'all') {
+  if (filter.status && filter.status !== 'all') {
     conditions.push(`status = ?`)
     params.push(filter.status)
   }
@@ -191,8 +188,6 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
     customerAddress: r.customer_address,
     createdAt: r.created_at,
     paidAt: r.paid_at,
-    kitchenPrintedAt: r.kitchen_printed_at,
-    amountPaid: r.amount_paid,
     items: (itemsByOrder.get(r.id as number) ?? []).map(mapItem)
   })) as unknown as OrderWithItems[]
 }
@@ -218,8 +213,8 @@ export function updateOrderItems(input: {
   const tx = sqlite.transaction((): OrderWithItems => {
     const existing = db.select().from(orders).where(eq(orders.id, input.orderId)).get()
     if (!existing) throw new Error('Order not found')
-    if (existing.status !== 'pending') {
-      throw new Error('Only pending orders can be edited')
+    if (existing.status !== 'pending' && existing.status !== 'kitchen_printed') {
+      throw new Error('Only pending or kitchen orders can be edited')
     }
 
     // Reverse old timesSold
@@ -314,128 +309,13 @@ export function updateOrderItems(input: {
   return tx()
 }
 
-function nowStamp(): string {
-  return new Date().toISOString().slice(0, 19).replace('T', ' ')
-}
-
-function withItems(id: number): OrderWithItems {
-  const db = getDb()
-  const order = db.select().from(orders).where(eq(orders.id, id)).get()
-  if (!order) throw new Error('Order not found')
-  const items = db.select().from(orderItems).where(eq(orderItems.orderId, id)).all()
-  return { ...order, items } as unknown as OrderWithItems
-}
-
-// Marking an order paid settles whatever is still owed on it, and records that
-// settlement as a payment so the customer ledger stays complete.
 export function updateOrderStatus(id: number, status: OrderStatus): OrderWithItems {
   const db = getDb()
-  const sqlite = getSqlite()
-  const now = nowStamp()
-
-  const tx = sqlite.transaction((): OrderWithItems => {
-    const existing = db.select().from(orders).where(eq(orders.id, id)).get()
-    if (!existing) throw new Error('Order not found')
-
-    const changes: Record<string, unknown> = { status }
-    if (status === 'paid') {
-      const owed = Math.max(0, existing.total - existing.amountPaid)
-      if (owed > 0) {
-        sqlite
-          .prepare(
-            `INSERT INTO order_payments (order_id, amount, method, created_at) VALUES (?, ?, 'cash', ?)`
-          )
-          .run(id, owed, now)
-      }
-      changes.amountPaid = existing.total
-      changes.paidAt = now
-    }
-    db.update(orders).set(changes).where(eq(orders.id, id)).run()
-    return withItems(id)
-  })
-
-  return tx()
-}
-
-// Kitchen printing is a timestamp, not a status: an order stays "pending" until
-// it is actually paid, which is what the client tracks money by.
-export function markKitchenPrinted(id: number): OrderWithItems {
-  const db = getDb()
-  const existing = db.select().from(orders).where(eq(orders.id, id)).get()
-  if (!existing) throw new Error('Order not found')
-  if (!existing.kitchenPrintedAt) {
-    db.update(orders).set({ kitchenPrintedAt: nowStamp() }).where(eq(orders.id, id)).run()
-  }
-  return withItems(id)
-}
-
-// Partial payment: records what the customer actually handed over. The order
-// only flips to "paid" once the running total covers the bill.
-export function addOrderPayment(input: {
-  orderId: number
-  amount: number
-  method?: string
-  note?: string
-}): OrderWithItems {
-  const amount = Math.round(input.amount)
-  if (amount <= 0) throw new Error('Payment must be greater than zero')
-
-  const db = getDb()
-  const sqlite = getSqlite()
-  const now = nowStamp()
-
-  const tx = sqlite.transaction((): OrderWithItems => {
-    const existing = db.select().from(orders).where(eq(orders.id, input.orderId)).get()
-    if (!existing) throw new Error('Order not found')
-    if (existing.status === 'cancelled') throw new Error('Order is cancelled')
-
-    const owed = Math.max(0, existing.total - existing.amountPaid)
-    if (owed === 0) throw new Error('Order is already fully paid')
-    if (amount > owed) throw new Error(`Only Rs ${owed} is outstanding on this order`)
-
-    sqlite
-      .prepare(
-        `INSERT INTO order_payments (order_id, amount, method, note, created_at) VALUES (?, ?, ?, ?, ?)`
-      )
-      .run(input.orderId, amount, input.method?.trim() || 'cash', input.note?.trim() || null, now)
-
-    const paidNow = existing.amountPaid + amount
-    const settled = paidNow >= existing.total
-    db.update(orders)
-      .set({
-        amountPaid: paidNow,
-        status: settled ? 'paid' : existing.status,
-        paidAt: settled ? now : existing.paidAt
-      })
-      .where(eq(orders.id, input.orderId))
-      .run()
-
-    return withItems(input.orderId)
-  })
-
-  return tx()
-}
-
-export function listOrderPayments(orderId: number): OrderPayment[] {
-  return getSqlite()
-    .prepare(
-      `SELECT id, order_id as orderId, amount, method, note, created_at as createdAt
-       FROM order_payments WHERE order_id = ? ORDER BY id ASC`
-    )
-    .all(orderId) as OrderPayment[]
-}
-
-// Everything still owed, newest first, for the customer-ledger screen.
-export function listUnpaidOrders(phone?: string): OrderWithItems[] {
-  const sqlite = getSqlite()
-  const params: unknown[] = []
-  let where = `WHERE status = 'pending' AND amount_paid < total`
-  if (phone?.trim()) {
-    where += ` AND customer_phone = ?`
-    params.push(phone.trim())
-  }
-  const rows = sqlite
-    .prepare(`SELECT id FROM orders ${where} ORDER BY id DESC LIMIT 500`)
-    .all(...params) as { id: number }[]
-  return rows.map((r) => withItems(r.id))
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const changes: Record<string, unknown> = { status }
+  if (status === 'paid') changes.paidAt = now
+  const order = db.update(orders).set(changes).where(eq(orders.id, id)).returning().get()
+  if (!order) throw new Error('Order not found')
+  const items = db.select().from(orderItems).where(eq(orderItems.orderId, id)).all()
+  return { ...order, items }
 }

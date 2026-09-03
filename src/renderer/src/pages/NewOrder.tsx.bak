@@ -291,6 +291,10 @@ export default function NewOrder(): React.JSX.Element {
       return
     }
     let order = res.data
+    if (action === 'kitchen_slip') {
+      const up = await window.api.orders.updateStatus(order.id, 'kitchen_printed')
+      if (up.ok && up.data) order = up.data
+    }
     let printNote = ''
     if (action === 'paid_print' || action === 'print_receipt') {
       const pr = await window.api.print.receipt(order)
@@ -298,14 +302,8 @@ export default function NewOrder(): React.JSX.Element {
     } else if (action === 'kitchen_slip') {
       const pr = await window.api.print.kitchen(order)
       printNote = pr.ok ? ' - kitchen slip printed' : ' - (printer issue - order saved)'
-      // Only record the kitchen print once the slip actually came out, and keep
-      // the order pending: it stays unpaid until the money is collected.
-      if (pr.ok) {
-        const up = await window.api.orders.markKitchenPrinted(order.id)
-        if (up.ok && up.data) order = up.data
-      }
     }
-    setSavedMsg(`Order ${order.orderNumber} saved (${order.status}) - Rs ${order.total}${printNote}`)
+    setSavedMsg(`Order ${order.orderNumber} saved (${order.status.replace('_', ' ')}) - Rs ${order.total}${printNote}`)
     cart.clear()
     setQuery('')
     setSaving(false)
