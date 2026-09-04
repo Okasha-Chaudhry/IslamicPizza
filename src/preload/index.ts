@@ -154,9 +154,11 @@ const api = {
       orderType?: OrderType
       tableId?: number | null
       waiterId?: number | null
+      customerName?: string | null
       customerPhone?: string | null
       customerAddress?: string | null
       deliveryCharge?: number
+      serviceCharge?: number
       note?: string
       items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
     }): Promise<ApiResult<OrderWithItems>> => ipcRenderer.invoke('orders:updateItems', input)

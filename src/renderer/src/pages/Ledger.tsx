@@ -88,14 +88,16 @@ export default function Ledger(): React.JSX.Element {
   const totalDue = orders.reduce((s, o) => s + owedOn(o), 0)
 
   // Group by phone so one glance shows who owes what across all their orders.
-  const byCustomer = new Map<string, { due: number; count: number; address: string }>()
+  const byCustomer = new Map<string, { due: number; count: number; search: string }>()
   for (const o of orders) {
-    const key = o.customerPhone ?? 'Walk-in'
-    const prev = byCustomer.get(key) ?? { due: 0, count: 0, address: '' }
+    const name = o.customerName?.trim()
+    const phone = o.customerPhone?.trim()
+    const key = name && phone ? `${name} - ${phone}` : (name ?? phone ?? 'Unnamed')
+    const prev = byCustomer.get(key) ?? { due: 0, count: 0, search: name ?? phone ?? '' }
     byCustomer.set(key, {
       due: prev.due + owedOn(o),
       count: prev.count + 1,
-      address: prev.address || (o.customerAddress ?? '')
+      search: prev.search
     })
   }
 
@@ -114,8 +116,8 @@ export default function Ledger(): React.JSX.Element {
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-10 w-56 pl-8"
-                placeholder="Search by phone"
+                className="h-10 w-64 pl-8"
+                placeholder="Search by name or phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -128,13 +130,13 @@ export default function Ledger(): React.JSX.Element {
 
         {byCustomer.size > 0 && (
           <div className="flex flex-wrap gap-2">
-            {[...byCustomer.entries()].map(([ph, info]) => (
+            {[...byCustomer.entries()].map(([label, info]) => (
               <button
-                key={ph}
+                key={label}
                 className="rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
-                onClick={() => setPhone(ph === 'Walk-in' ? '' : ph)}
+                onClick={() => setPhone(info.search)}
               >
-                <span className="font-medium">{ph}</span>
+                <span className="font-medium">{label}</span>
                 <span className="ml-2 font-bold text-amber-700 dark:text-amber-400">Rs {info.due}</span>
                 <span className="ml-2 text-xs text-muted-foreground">
                   {info.count} order{info.count === 1 ? '' : 's'}
@@ -151,6 +153,7 @@ export default function Ledger(): React.JSX.Element {
                 <th className="h-10 px-3 font-medium">Order #</th>
                 <th className="h-10 px-3 font-medium">Date</th>
                 <th className="h-10 px-3 font-medium">Type</th>
+                <th className="h-10 px-3 font-medium">Name</th>
                 <th className="h-10 px-3 font-medium">Phone</th>
                 <th className="h-10 px-3 font-medium">Address</th>
                 <th className="h-10 px-3 text-right font-medium">Total</th>
@@ -171,6 +174,9 @@ export default function Ledger(): React.JSX.Element {
                   <td className="h-12 px-3 font-medium">{o.orderNumber}</td>
                   <td className="h-12 px-3 text-muted-foreground">{fmtDateTime(o.createdAt)}</td>
                   <td className="h-12 px-3">{TYPE_LABEL[o.orderType] ?? o.orderType}</td>
+                  <td className="h-12 max-w-32 truncate px-3" title={o.customerName ?? ''}>
+                    {o.customerName ?? ''}
+                  </td>
                   <td className="h-12 px-3 text-muted-foreground">{o.customerPhone ?? ''}</td>
                   <td
                     className="h-12 max-w-40 truncate px-3 text-muted-foreground"
@@ -189,8 +195,8 @@ export default function Ledger(): React.JSX.Element {
               ))}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                    {phone.trim() ? 'No outstanding orders for this number' : 'Nothing outstanding'}
+                  <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                    {phone.trim() ? 'No outstanding orders for this search' : 'Nothing outstanding'}
                   </td>
                 </tr>
               )}
@@ -213,6 +219,9 @@ export default function Ledger(): React.JSX.Element {
                 {TYPE_LABEL[selected.orderType] ?? selected.orderType} &middot;{' '}
                 {fmtDateTime(selected.createdAt)}
               </p>
+              {selected.customerName && (
+                <p className="text-xs font-medium">{selected.customerName}</p>
+              )}
               {selected.customerPhone && (
                 <p className="text-xs text-muted-foreground">Ph: {selected.customerPhone}</p>
               )}
@@ -243,6 +252,12 @@ export default function Ledger(): React.JSX.Element {
                   <div className="flex justify-between text-muted-foreground">
                     <span>Discount</span>
                     <span>- Rs {selected.discount}</span>
+                  </div>
+                )}
+                {selected.serviceCharge > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Service</span>
+                    <span>+ Rs {selected.serviceCharge}</span>
                   </div>
                 )}
                 {selected.deliveryCharge > 0 && (

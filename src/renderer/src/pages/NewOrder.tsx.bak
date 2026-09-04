@@ -216,7 +216,7 @@ export default function NewOrder(): React.JSX.Element {
   const subtotal = cartSubtotal(cart.lines)
   const discountAmount = Math.min(cart.discountAmount, subtotal)
   const deliveryCharge = cart.orderType === 'delivery' ? cart.deliveryCharge : 0
-  const total = subtotal - discountAmount + deliveryCharge + cart.serviceCharge
+  const total = subtotal - discountAmount + deliveryCharge
 
   async function updateOrder(): Promise<void> {
     setError('')
@@ -233,11 +233,9 @@ export default function NewOrder(): React.JSX.Element {
       orderType: cart.orderType,
       tableId: cart.tableId,
       waiterId: cart.waiterId,
-      customerName: cart.customerName,
       customerPhone: cart.customerPhone,
       customerAddress: cart.customerAddress,
       deliveryCharge: cart.deliveryCharge,
-      serviceCharge: cart.serviceCharge,
       items: cart.lines.map((l) => ({
         productId: l.productId,
         variantId: l.variantId,
@@ -278,7 +276,6 @@ export default function NewOrder(): React.JSX.Element {
       customerAddress: cart.customerAddress,
       discountAmount: cart.discountAmount,
       deliveryCharge: cart.deliveryCharge,
-      serviceCharge: cart.serviceCharge,
       markPaid,
       items: cart.lines.map((l) => ({
         productId: l.productId,
@@ -294,6 +291,10 @@ export default function NewOrder(): React.JSX.Element {
       return
     }
     let order = res.data
+    if (action === 'kitchen_slip') {
+      const up = await window.api.orders.updateStatus(order.id, 'kitchen_printed')
+      if (up.ok && up.data) order = up.data
+    }
     let printNote = ''
     if (action === 'paid_print' || action === 'print_receipt') {
       const pr = await window.api.print.receipt(order)
@@ -301,14 +302,8 @@ export default function NewOrder(): React.JSX.Element {
     } else if (action === 'kitchen_slip') {
       const pr = await window.api.print.kitchen(order)
       printNote = pr.ok ? ' - kitchen slip printed' : ' - (printer issue - order saved)'
-      // Only record the kitchen print once the slip actually came out, and keep
-      // the order pending: it stays unpaid until the money is collected.
-      if (pr.ok) {
-        const up = await window.api.orders.markKitchenPrinted(order.id)
-        if (up.ok && up.data) order = up.data
-      }
     }
-    setSavedMsg(`Order ${order.orderNumber} saved (${order.status}) - Rs ${order.total}${printNote}`)
+    setSavedMsg(`Order ${order.orderNumber} saved (${order.status.replace('_', ' ')}) - Rs ${order.total}${printNote}`)
     cart.clear()
     setQuery('')
     setSaving(false)
@@ -384,17 +379,6 @@ export default function NewOrder(): React.JSX.Element {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
-
-        {cart.orderType !== 'delivery' && (
-          <div className="flex gap-2">
-            <Input
-              className="h-11 w-64"
-              placeholder="Customer Name (optional)"
-              value={cart.customerName}
-              onChange={(e) => cart.setCustomerName(e.target.value)}
-            />
           </div>
         )}
 
@@ -643,20 +627,6 @@ export default function NewOrder(): React.JSX.Element {
                 onChange={(e) => cart.setDiscountAmount(Number(e.target.value))}
               />
               <span className="w-16 text-right text-muted-foreground">- Rs {discountAmount}</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span>Service Rs</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min="0"
-                className="h-8 w-16 text-right"
-                value={cart.serviceCharge === 0 ? '' : cart.serviceCharge}
-                placeholder="0"
-                onChange={(e) => cart.setServiceCharge(Number(e.target.value))}
-              />
-              <span className="w-16 text-right text-muted-foreground">+ Rs {cart.serviceCharge}</span>
             </div>
           </div>
           {cart.orderType === 'delivery' && (
