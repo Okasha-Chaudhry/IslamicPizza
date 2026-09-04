@@ -171,6 +171,41 @@ const MIGRATIONS: string[] = [
   `
 ]
 
+// Older installs can carry a user_version that skips a migration (a build was
+// shipped, then the migration list changed underneath it). Adding the columns
+// defensively means an existing client database heals itself on next launch.
+function ensureColumns(conn: Database.Database): void {
+  const cols = (conn.prepare(`PRAGMA table_info(orders)`).all() as { name: string }[]).map(
+    (c) => c.name
+  )
+  const add = (name: string, ddl: string): void => {
+    if (!cols.includes(name)) conn.exec(`ALTER TABLE orders ADD COLUMN ${ddl};`)
+  }
+  add('delivery_charge', 'delivery_charge INTEGER NOT NULL DEFAULT 0')
+  add('kitchen_printed_at', 'kitchen_printed_at TEXT')
+  add('amount_paid', 'amount_paid INTEGER NOT NULL DEFAULT 0')
+  add('service_charge', 'service_charge INTEGER NOT NULL DEFAULT 0')
+  add('customer_name', 'customer_name TEXT')
+  conn.exec(`
+    CREATE TABLE IF NOT EXISTS order_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL,
+      method TEXT NOT NULL DEFAULT 'cash',
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_payments_order ON order_payments(order_id);
+  `)
+  // Old rows used a 'kitchen_printed' status; the kitchen print is a timestamp now.
+  conn.exec(`
+    UPDATE orders SET kitchen_printed_at = created_at
+      WHERE status = 'kitchen_printed' AND kitchen_printed_at IS NULL;
+    UPDATE orders SET amount_paid = total WHERE status = 'paid' AND amount_paid = 0;
+    UPDATE orders SET status = 'pending' WHERE status = 'kitchen_printed';
+  `)
+}
+
 function runMigrations(conn: Database.Database): void {
   const current = conn.pragma('user_version', { simple: true }) as number
   for (let v = current; v < MIGRATIONS.length; v++) {
@@ -181,6 +216,7 @@ function runMigrations(conn: Database.Database): void {
     migrate()
     console.log(`[db] migration v${v + 1} applied`)
   }
+  ensureColumns(conn)
 }
 
 export function initDatabase(): void {
