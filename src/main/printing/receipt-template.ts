@@ -151,8 +151,8 @@ export function buildReceiptHtml(
     font-family: 'Courier New', monospace;
     font-size: ${baseFont};
     color: #000;
-    padding: 1mm 0;
-    font-weight: 500;
+    padding: 1mm 0 0 0;
+    font-weight: 700;
     -webkit-font-smoothing: none;
     line-height: 1.35;
   }
@@ -160,29 +160,29 @@ export function buildReceiptHtml(
   .bold { font-weight: 700; }
   .title { font-size: 1.7em; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 0.5mm; }
   .subhead { font-size: 1.15em; font-weight: 700; }
-  .addr { font-size: 1em; font-weight: 500; }
+  .addr { font-size: 1em; font-weight: 700; }
   .big { font-size: 1.5em; }
   .small { font-size: 0.8em; }
   .hr { border-top: 1.5px solid #000; margin: 1.5mm 0; }
   .hr-thin { border-top: 1px solid #000; margin: 1mm 0; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 0.4mm 0; vertical-align: top; }
-  .meta td { font-size: 1em; font-weight: 500; }
+  .meta td { font-size: 1em; font-weight: 700; }
   .meta td.k { width: 17mm; }
   .meta td.s { width: 3mm; }
   td.num { text-align: right; white-space: nowrap; padding-left: 2mm; }
   td.qty { width: 10mm; font-weight: 700; }
   .items thead td { font-weight: 700; border-bottom: 1px solid #000; padding-bottom: 0.8mm; }
   .items td.iname { padding-right: 2mm; }
-  .items tbody td { font-weight: 500; }
-  .totals td { font-weight: 500; }
+  .items tbody td { font-weight: 700; }
+  .totals td { font-weight: 700; }
   .totals .grand td { font-weight: 700; font-size: 1.35em; padding: 0.5mm 0; }
   .note { font-style: italic; font-size: 0.85em; }
   .logo { max-width: 40mm; max-height: 20mm; margin-bottom: 1mm; }
   .qr { width: 28mm; height: 28mm; margin: 1mm 0; }
-  .thanks { font-size: 1em; font-weight: 500; margin: 1.5mm 0; }
-  .powered { margin-top: 1mm; }
-  .xiom { height: 5mm; margin-bottom: 0.5mm; }
+  .thanks { font-size: 1em; font-weight: 700; margin: 1.5mm 0; }
+  .powered { margin-top: 1mm; margin-bottom: 0; }
+  .xiom { height: 13mm; margin-bottom: 1mm; }
 </style>
 </head>
 <body>
