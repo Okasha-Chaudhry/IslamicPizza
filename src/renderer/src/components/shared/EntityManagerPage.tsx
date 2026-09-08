@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import UrduInput from '@/components/shared/UrduInput'
 import type { ApiResult, NamedEntity, CreateNamedEntityInput, UpdateNamedEntityInput } from '../../../../shared/types'
 
 interface EntityApi {
@@ -77,14 +78,10 @@ export default function EntityManagerPage({ title, placeholder, api }: Props): R
   return (
     <div className="max-w-2xl space-y-4 p-6">
       <h1 className="text-2xl font-bold">{title}</h1>
-      <div className="flex gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void add()}
-          placeholder={placeholder}
-          className="h-11 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-        />
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <UrduInput value={name} onChange={setName} placeholder={placeholder} />
+        </div>
         <Button className="h-11 px-6" onClick={() => void add()}>
           Add
         </Button>
@@ -98,16 +95,9 @@ export default function EntityManagerPage({ title, placeholder, api }: Props): R
           >
             {editingId === item.id ? (
               <>
-                <input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void saveEdit()
-                    if (e.key === 'Escape') setEditingId(null)
-                  }}
-                  autoFocus
-                  className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                />
+                <div className="flex-1">
+                  <UrduInput value={editName} onChange={setEditName} autoFocus />
+                </div>
                 <Button size="icon" variant="ghost" onClick={() => void saveEdit()}>
                   <Check className="size-4" />
                 </Button>
