@@ -119,6 +119,9 @@ export function registerIpcHandlers(): void {
   handle('closing:open', closingService.openDay)
   handle('closing:close', closingService.closeDay)
   handle('closing:history', closingService.getClosingHistory)
+  handle('closing:dayReport', (businessDayId: number) =>
+    reportsService.getSalesReport({ from: '', to: '', businessDayId })
+  )
 
   handle('expenses:listItems', expensesService.listExpenseItems)
   handle('expenses:createItem', expensesService.createExpenseItem)
@@ -208,6 +211,9 @@ export function registerIpcHandlers(): void {
   handle('orders:list', ordersService.listOrders)
   handle('orders:updateItems', ordersService.updateOrderItems)
   handle('orders:updateStatus', ordersService.updateOrderStatus)
+  handle('orders:markKitchenPrinted', ordersService.markKitchenPrinted)
+  handle('orders:addPayment', ordersService.addOrderPayment)
+  handle('orders:payments', ordersService.listOrderPayments)
 
   handle('waiters:list', waitersService.list)
   handle('waiters:create', waitersService.create)

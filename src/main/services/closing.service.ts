@@ -1,21 +1,5 @@
-﻿import { getSqlite } from '../db'
-
-export interface BusinessDay {
-  id: number
-  openedAt: string
-  closedAt: string | null
-  openingFloat: number
-  status: 'open' | 'closed'
-  zNumber: number | null
-  totalOrders: number
-  paidOrders: number
-  totalRevenue: number
-  totalDiscount: number
-  expectedCash: number
-  countedCash: number | null
-  cashDifference: number | null
-  note: string | null
-}
+import { getSqlite } from '../db'
+import type { BusinessDay } from '../../shared/types'
 
 const DAY_COLS = `
   id, opened_at AS openedAt, closed_at AS closedAt, opening_float AS openingFloat,
@@ -25,13 +9,14 @@ const DAY_COLS = `
 `
 
 export function getCurrentDay(): BusinessDay | null {
-  const sqlite = getSqlite()
-  const row = sqlite
+  const row = getSqlite()
     .prepare(`SELECT ${DAY_COLS} FROM business_days WHERE status = 'open' ORDER BY id DESC LIMIT 1`)
     .get() as BusinessDay | undefined
   return row ?? null
 }
 
+// Called automatically by the first order of a day, so the client never has to
+// remember to start one. Passing a float is optional and only used if they do.
 export function openDay(openingFloat: number): BusinessDay {
   const sqlite = getSqlite()
   const existing = getCurrentDay()
@@ -44,6 +29,40 @@ export function openDay(openingFloat: number): BusinessDay {
     .get(info.lastInsertRowid) as BusinessDay
 }
 
+// Money actually received counts, whether the order is fully settled or not -
+// a part-paid order still put cash in the drawer.
+function totalsFor(businessDayId: number): {
+  totalOrders: number
+  paidOrders: number
+  pendingOrders: number
+  totalRevenue: number
+  totalDiscount: number
+  pendingAmount: number
+  serviceCharges: number
+} {
+  return getSqlite()
+    .prepare(
+      `SELECT
+        COUNT(*) AS totalOrders,
+        COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrders,
+        COUNT(CASE WHEN status = 'pending' AND amount_paid < total THEN 1 END) AS pendingOrders,
+        COALESCE(SUM(CASE WHEN status != 'cancelled' THEN amount_paid END), 0) AS totalRevenue,
+        COALESCE(SUM(CASE WHEN status != 'cancelled' THEN discount END), 0) AS totalDiscount,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN total - amount_paid END), 0) AS pendingAmount,
+        COALESCE(SUM(CASE WHEN status != 'cancelled' THEN service_charge END), 0) AS serviceCharges
+      FROM orders WHERE business_day_id = ?`
+    )
+    .get(businessDayId) as {
+    totalOrders: number
+    paidOrders: number
+    pendingOrders: number
+    totalRevenue: number
+    totalDiscount: number
+    pendingAmount: number
+    serviceCharges: number
+  }
+}
+
 export function getCurrentDayTotals(): {
   day: BusinessDay | null
   totalOrders: number
@@ -52,34 +71,39 @@ export function getCurrentDayTotals(): {
   totalRevenue: number
   totalDiscount: number
   expectedCash: number
+  pendingAmount: number
+  serviceCharges: number
 } {
-  const sqlite = getSqlite()
   const day = getCurrentDay()
   if (!day) {
-    return { day: null, totalOrders: 0, paidOrders: 0, pendingOrders: 0, totalRevenue: 0, totalDiscount: 0, expectedCash: 0 }
+    return {
+      day: null,
+      totalOrders: 0,
+      paidOrders: 0,
+      pendingOrders: 0,
+      totalRevenue: 0,
+      totalDiscount: 0,
+      expectedCash: 0,
+      pendingAmount: 0,
+      serviceCharges: 0
+    }
   }
-  const t = sqlite
-    .prepare(
-      `SELECT
-        COUNT(*) AS totalOrders,
-        COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrders,
-        COUNT(CASE WHEN status IN ('pending','kitchen_printed') THEN 1 END) AS pendingOrders,
-        COALESCE(SUM(CASE WHEN status = 'paid' THEN total END), 0) AS totalRevenue,
-        COALESCE(SUM(CASE WHEN status = 'paid' THEN discount END), 0) AS totalDiscount
-      FROM orders WHERE business_day_id = ?`
-    )
-    .get(day.id) as { totalOrders: number; paidOrders: number; pendingOrders: number; totalRevenue: number; totalDiscount: number }
+  const t = totalsFor(day.id)
   return { day, ...t, expectedCash: day.openingFloat + t.totalRevenue }
 }
 
-export function closeDay(countedCash: number, note?: string): BusinessDay {
+// countedCash is optional: pass null to close without counting the drawer.
+export function closeDay(countedCash: number | null, note?: string): BusinessDay {
   const sqlite = getSqlite()
-  const totals = getCurrentDayTotals()
-  if (!totals.day) throw new Error('No open business day to close')
-  const zRow = sqlite.prepare(`SELECT COALESCE(MAX(z_number), 0) AS z FROM business_days WHERE status = 'closed'`).get() as { z: number }
-  const zNumber = zRow.z + 1
-  const counted = Math.round(countedCash || 0)
-  const difference = counted - totals.expectedCash
+  const day = getCurrentDay()
+  if (!day) throw new Error('No open business day to close')
+  const t = totalsFor(day.id)
+  const expectedCash = day.openingFloat + t.totalRevenue
+  const zRow = sqlite
+    .prepare(`SELECT COALESCE(MAX(z_number), 0) AS z FROM business_days WHERE status = 'closed'`)
+    .get() as { z: number }
+  const counted = countedCash === null || countedCash === undefined ? null : Math.round(countedCash)
+  const difference = counted === null ? null : counted - expectedCash
   sqlite
     .prepare(
       `UPDATE business_days SET
@@ -88,11 +112,23 @@ export function closeDay(countedCash: number, note?: string): BusinessDay {
         expected_cash = ?, counted_cash = ?, cash_difference = ?, note = ?
       WHERE id = ?`
     )
-    .run(zNumber, totals.totalOrders, totals.paidOrders, totals.totalRevenue, totals.totalDiscount, totals.expectedCash, counted, difference, note ?? null, totals.day.id)
-  return sqlite.prepare(`SELECT ${DAY_COLS} FROM business_days WHERE id = ?`).get(totals.day.id) as BusinessDay
+    .run(
+      zRow.z + 1,
+      t.totalOrders,
+      t.paidOrders,
+      t.totalRevenue,
+      t.totalDiscount,
+      expectedCash,
+      counted,
+      difference,
+      note ?? null,
+      day.id
+    )
+  return sqlite.prepare(`SELECT ${DAY_COLS} FROM business_days WHERE id = ?`).get(day.id) as BusinessDay
 }
 
 export function getClosingHistory(limit = 30): BusinessDay[] {
-  const sqlite = getSqlite()
-  return sqlite.prepare(`SELECT ${DAY_COLS} FROM business_days WHERE status = 'closed' ORDER BY id DESC LIMIT ?`).all(limit) as BusinessDay[]
+  return getSqlite()
+    .prepare(`SELECT ${DAY_COLS} FROM business_days WHERE status = 'closed' ORDER BY id DESC LIMIT ?`)
+    .all(limit) as BusinessDay[]
 }

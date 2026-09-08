@@ -111,7 +111,8 @@ export interface UpdateProductInput {
 }
 
 export type OrderType = 'dine_in' | 'take_away' | 'delivery'
-export type OrderStatus = 'pending' | 'kitchen_printed' | 'paid' | 'cancelled'
+export type OrderStatus = 'pending' | 'paid' | 'cancelled'
+export type OrderFilterTab = OrderStatus | 'all' | 'kitchen'
 
 export interface OrderItemInput {
   productId: number
@@ -130,6 +131,7 @@ export interface CreateOrderInput {
   customerAddress?: string
   discountAmount: number
   deliveryCharge: number
+  serviceCharge?: number
   note?: string
   markPaid: boolean
   items: OrderItemInput[]
@@ -163,14 +165,28 @@ export interface Order {
   taxAmount: number
   total: number
   note: string | null
+  customerName: string | null
   customerPhone: string | null
   customerAddress: string | null
+  serviceCharge: number
+  amountPaid: number
+  businessDayId: number | null
   createdAt: string
   paidAt: string | null
+  kitchenPrintedAt: string | null
 }
 
 export interface OrderWithItems extends Order {
   items: OrderItem[]
+}
+
+export interface OrderPayment {
+  id: number
+  orderId: number
+  amount: number
+  method: string
+  note: string | null
+  createdAt: string
 }
 
 export interface AppSettings {
@@ -216,11 +232,20 @@ export interface DailySales {
   revenue: number
 }
 
+export interface SectionItemSales {
+  sectionName: string
+  productName: string
+  variantName: string | null
+  quantity: number
+  revenue: number
+}
+
 export interface SalesReport {
   from: string
   to: string
   summary: SalesSummary
   popular: PopularProduct[]
+  bySection: SectionItemSales[]
   daily: DailySales[]
 }
 
@@ -330,4 +355,6 @@ export interface CurrentDayTotals {
   totalRevenue: number
   totalDiscount: number
   expectedCash: number
+  pendingAmount: number
+  serviceCharges: number
 }

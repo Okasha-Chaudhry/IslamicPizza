@@ -20,6 +20,7 @@ interface Layout {
   width: number
   qtyW: number
   amtW: number
+  dots: number
 }
 
 function layout(settings: AppSettings): Layout {
@@ -30,7 +31,10 @@ function layout(settings: AppSettings): Layout {
   // Scale the qty/amount columns to the width so 58mm, 80mm, and odd widths all align.
   const amtW = Math.max(6, Math.round(width * 0.21))
   const qtyW = Math.max(3, Math.round(width * 0.1))
-  return { width, qtyW, amtW }
+  // Paper dot width is fixed by the hardware (576 on 80mm, 384 on 58mm) and
+  // does not shrink when charsPerLine is overridden.
+  const dots = settings.receiptWidth === '58' ? 384 : 576
+  return { width, qtyW, amtW, dots }
 }
 
 function resourcePath(file: string): string {
@@ -215,6 +219,7 @@ export async function printReceiptEscpos(
   if (names.tableName) printer.println(`Table: ${names.tableName}`)
   if (names.waiterName) printer.println(`Waiter: ${names.waiterName}`)
   if (names.servedBy) printer.println(`Served by: ${names.servedBy}`)
+  if (order.customerName) printer.println(`Name: ${order.customerName}`)
   if (order.customerPhone) printer.println(`Phone: ${order.customerPhone}`)
   if (order.customerAddress) printer.println(`Address: ${order.customerAddress}`)
   printer.drawLine()
@@ -232,7 +237,7 @@ export async function printReceiptEscpos(
         name,
         qty: item.quantity,
         amount: money(item.lineTotal),
-        widthDots: L.width * 12,
+        widthDots: L.dots,
         fontSize: 30
       })
       await printer.printImageBuffer(buf)
@@ -249,11 +254,14 @@ export async function printReceiptEscpos(
   }
   printer.drawLine()
 
-  if (order.discount > 0 || order.deliveryCharge > 0) {
+  if (order.discount > 0 || order.deliveryCharge > 0 || order.serviceCharge > 0) {
     printer.println(padRow('Subtotal:', money(order.subtotal), L))
   }
   if (order.discount > 0) {
     printer.println(padRow('Discount:', '-' + money(order.discount), L))
+  }
+  if (order.serviceCharge > 0) {
+    printer.println(padRow('Service:', '+' + money(order.serviceCharge), L))
   }
   if (order.deliveryCharge > 0) {
     printer.println(padRow('Delivery:', '+' + money(order.deliveryCharge), L))
@@ -263,6 +271,12 @@ export async function printReceiptEscpos(
   printer.println(padRow('TOTAL:', money(order.total), L))
   printer.setTextNormal()
   printer.bold(false)
+  if (order.amountPaid > 0 && order.amountPaid < order.total) {
+    printer.println(padRow('Paid:', money(order.amountPaid), L))
+    printer.bold(true)
+    printer.println(padRow('BALANCE:', money(order.total - order.amountPaid), L))
+    printer.bold(false)
+  }
 
   printer.alignCenter()
   printer.drawLine()
@@ -333,6 +347,14 @@ export async function printKitchenEscpos(
     printer.bold(false)
     printer.println(new Date(order.createdAt).toLocaleString())
     if (names.tableName) printer.println('Table: ' + names.tableName)
+    if (order.customerName) {
+      printer.bold(true)
+      printer.println('Name: ' + order.customerName)
+      printer.bold(false)
+    }
+    if (order.orderType === 'delivery' && order.customerAddress) {
+      printer.println('Addr: ' + order.customerAddress)
+    }
     printer.drawLine()
 
     printer.alignLeft()
@@ -344,7 +366,7 @@ export async function printKitchenEscpos(
         const buf = renderItemRow({
           name,
           qty: String(item.quantity) + ' x',
-          widthDots: L.width * 12,
+          widthDots: L.dots,
           fontSize: 40,
           bold: true
         })
@@ -451,7 +473,7 @@ export async function printReportEscpos(
         name,
         qty: p.quantity,
         amount: money(p.revenue),
-        widthDots: L.width * 12,
+        widthDots: L.dots,
         fontSize: 28
       })
       await printer.printImageBuffer(buf)
@@ -496,7 +518,7 @@ export async function printReportEscpos(
           name,
           qty: row.quantity,
           amount: money(row.revenue),
-          widthDots: L.width * 12,
+          widthDots: L.dots,
           fontSize: 28
         })
         await printer.printImageBuffer(buf)

@@ -21,9 +21,12 @@ import type {
   CreateOrderInput,
   OrderWithItems,
   OrderStatus,
+  OrderFilterTab,
+  OrderPayment,
   AppSettings,
   PrinterInfo,
   SalesReport,
+  SectionItemSales,
   SafeUser,
   UserRole,
   LicenseStatus,
@@ -129,15 +132,17 @@ const api = {
     check: (): Promise<ApiResult<string>> => ipcRenderer.invoke('backup:check')
   },
   reports: {
-    sales: (filter: { from: string; to: string }): Promise<ApiResult<SalesReport>> =>
+    sales: (filter: { from: string; to: string; businessDayId?: number }): Promise<ApiResult<SalesReport>> =>
       ipcRenderer.invoke('reports:sales', filter)
   },
   closing: {
     current: (): Promise<ApiResult<CurrentDayTotals>> => ipcRenderer.invoke('closing:current'),
     open: (openingFloat: number): Promise<ApiResult<BusinessDay>> =>
       ipcRenderer.invoke('closing:open', openingFloat),
-    close: (countedCash: number, note?: string): Promise<ApiResult<BusinessDay>> =>
+    close: (countedCash: number | null, note?: string): Promise<ApiResult<BusinessDay>> =>
       ipcRenderer.invoke('closing:close', countedCash, note),
+    dayReport: (businessDayId: number): Promise<ApiResult<SalesReport>> =>
+      ipcRenderer.invoke('closing:dayReport', businessDayId),
     history: (limit?: number): Promise<ApiResult<BusinessDay[]>> =>
       ipcRenderer.invoke('closing:history', limit)
   },
@@ -145,28 +150,37 @@ const api = {
     raw: (text: string): Promise<ApiResult<void>> => ipcRenderer.invoke('print:raw', text),
     closing: (day: BusinessDay): Promise<ApiResult<void>> => ipcRenderer.invoke('print:closing', day),
     test: (): Promise<ApiResult<void>> => ipcRenderer.invoke('print:test'),
-    report: (report: SalesReport): Promise<ApiResult<void>> => ipcRenderer.invoke('print:report', report),
+    report: (report: SalesReport & { sectionSummaryOnly?: boolean; bySection?: SectionItemSales[] }): Promise<ApiResult<void>> =>
+      ipcRenderer.invoke('print:report', report),
     receipt: (order: OrderWithItems): Promise<ApiResult<void>> =>
       ipcRenderer.invoke('print:receipt', order),
     kitchen: (order: OrderWithItems): Promise<ApiResult<void>> =>
       ipcRenderer.invoke('print:kitchen', order)
   },
   orders: {
-    list: (filter?: { date?: string; status?: OrderStatus | 'all' }): Promise<ApiResult<OrderWithItems[]>> =>
+    list: (filter?: { date?: string; businessDayId?: number; status?: OrderFilterTab }): Promise<ApiResult<OrderWithItems[]>> =>
       ipcRenderer.invoke('orders:list', filter),
     create: (input: CreateOrderInput): Promise<ApiResult<OrderWithItems>> =>
       ipcRenderer.invoke('orders:create', input),
     updateStatus: (id: number, status: OrderStatus): Promise<ApiResult<OrderWithItems>> =>
       ipcRenderer.invoke('orders:updateStatus', id, status),
+    markKitchenPrinted: (id: number): Promise<ApiResult<OrderWithItems>> =>
+      ipcRenderer.invoke('orders:markKitchenPrinted', id),
+    addPayment: (input: { orderId: number; amount: number; method?: string; note?: string }): Promise<ApiResult<OrderWithItems>> =>
+      ipcRenderer.invoke('orders:addPayment', input),
+    payments: (orderId: number): Promise<ApiResult<OrderPayment[]>> =>
+      ipcRenderer.invoke('orders:payments', orderId),
     updateItems: (input: {
       orderId: number
       discountAmount: number
       orderType?: OrderType
       tableId?: number | null
       waiterId?: number | null
+      customerName?: string | null
       customerPhone?: string | null
       customerAddress?: string | null
       deliveryCharge?: number
+      serviceCharge?: number
       note?: string
       items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
     }): Promise<ApiResult<OrderWithItems>> => ipcRenderer.invoke('orders:updateItems', input)
