@@ -10,7 +10,7 @@ $m = $m.Replace('"name": "restaurant-pos"', '"name": "islamic-pizza-pos"')
 $m = (Get-Content .\electron-builder.yml -Raw -Encoding UTF8) -replace "`r`n","`n"
 $m = $m.Replace('appId: com.okasha.restaurantpos', 'appId: com.okasha.islamicpizzapos')
 $m = $m.Replace('productName: Restaurant POS', 'productName: Islamic Pizza POS')
-$m = $m.Replace('artifactName: restaurant-pos-1.1-setup.', 'artifactName: islamic-pizza-pos-1.1.1-setup.')
+$m = $m.Replace('artifactName: restaurant-pos-1.1-setup.', 'artifactName: islamic-pizza-pos-1.1-setup.')
 [System.IO.File]::WriteAllText("$PSScriptRoot\electron-builder.yml", $m)
 
 $m = (Get-Content .\src\renderer\src\pages\ActivationScreen.tsx -Raw -Encoding UTF8) -replace "`r`n","`n"
@@ -18,8 +18,11 @@ $m = $m.Replace('<h1 className="text-2xl font-bold">Restaurant POS</h1>', '<h1 c
 [System.IO.File]::WriteAllText("$PSScriptRoot\src\renderer\src\pages\ActivationScreen.tsx", $m)
 
 $m = (Get-Content .\src\main\db\seed.ts -Raw -Encoding UTF8) -replace "`r`n","`n"
-$rm = "  // Generic build: no menu seeding. Client menu entered at delivery.`n  // (Islamic Pizza menu kept below; remove this return for their builds.)`n  return`n"
-$m = $m.Replace($rm, "")
+$rm = "export function seedIfEmpty(): void {`n  // Generic build: no menu seeding. Client menu entered at delivery.`n  // (Islamic Pizza menu kept below; remove this return for their builds.)`n  return`n"
+$m = $m.Replace($rm, "export function seedIfEmpty(): void {`n")
+# Seeding must be live in the build, whether the toggle was present or already removed.
+if ($m -match "Generic build: no menu seeding") { throw "Seed toggle did not apply - menu would be missing" }
+if ($m -notmatch "menu seeded") { throw "Seed code missing from seed.ts - menu would be missing" }
 [System.IO.File]::WriteAllText("$PSScriptRoot\src\main\db\seed.ts", $m)
 
 $m = (Get-Content .\src\main\services\settings.service.ts -Raw -Encoding UTF8) -replace "`r`n","`n"
@@ -37,4 +40,4 @@ try {
   git status
 }
 Write-Host "== DONE ==" -ForegroundColor Green
-Get-ChildItem .\dist\islamic-pizza-pos-1.1.1-setup.exe | Select-Object Name, LastWriteTime
+Get-ChildItem .\dist\islamic-pizza-pos-1.1-setup.exe | Select-Object Name, LastWriteTime
