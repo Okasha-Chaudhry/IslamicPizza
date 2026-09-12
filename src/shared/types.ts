@@ -86,7 +86,8 @@ export interface UpdateProductInput {
 }
 
 export type OrderType = 'dine_in' | 'take_away' | 'delivery'
-export type OrderStatus = 'pending' | 'kitchen_printed' | 'paid' | 'cancelled'
+export type OrderStatus = 'pending' | 'paid' | 'cancelled'
+export type OrderFilterTab = OrderStatus | 'all' | 'kitchen'
 
 export interface OrderItemInput {
   productId: number
@@ -105,6 +106,7 @@ export interface CreateOrderInput {
   customerAddress?: string
   discountAmount: number
   deliveryCharge: number
+  serviceCharge?: number
   note?: string
   markPaid: boolean
   items: OrderItemInput[]
@@ -135,17 +137,30 @@ export interface Order {
   discountPercent: number
   discount: number
   deliveryCharge: number
+  serviceCharge: number
   taxAmount: number
   total: number
   note: string | null
+  customerName: string | null
   customerPhone: string | null
   customerAddress: string | null
   createdAt: string
   paidAt: string | null
+  kitchenPrintedAt: string | null
+  amountPaid: number
 }
 
 export interface OrderWithItems extends Order {
   items: OrderItem[]
+}
+
+export interface OrderPayment {
+  id: number
+  orderId: number
+  amount: number
+  method: string
+  note: string | null
+  createdAt: string
 }
 
 export interface AppSettings {
@@ -209,13 +224,7 @@ export interface SafeUser {
   createdAt: string
 }
 
-export type ExpenseCategory =
-  | 'ingredients'
-  | 'utilities'
-  | 'salaries'
-  | 'rent'
-  | 'equipment'
-  | 'other'
+export type ExpenseCategory = 'ingredients' | 'utilities' | 'salaries' | 'rent' | 'equipment' | 'other'
 
 export interface ExpenseItem {
   id: number

@@ -11,9 +11,7 @@ export const categories = sqliteTable('categories', {
 
 export const products = sqliteTable('products', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  categoryId: integer('category_id')
-    .notNull()
-    .references(() => categories.id),
+  categoryId: integer('category_id').notNull().references(() => categories.id),
   name: text('name').notNull(),
   price: integer('price').notNull().default(0),
   hasVariants: integer('has_variants', { mode: 'boolean' }).notNull().default(false),
@@ -25,9 +23,7 @@ export const products = sqliteTable('products', {
 
 export const variants = sqliteTable('variants', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  productId: integer('product_id')
-    .notNull()
-    .references(() => products.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   price: integer('price').notNull().default(0),
   sortOrder: integer('sort_order').notNull().default(0),
@@ -54,30 +50,37 @@ export const orders = sqliteTable('orders', {
   orderType: text('order_type', { enum: ['dine_in', 'take_away', 'delivery'] }).notNull(),
   tableId: integer('table_id').references(() => restaurantTables.id),
   waiterId: integer('waiter_id').references(() => waiters.id),
-  status: text('status', {
-    enum: ['pending', 'kitchen_printed', 'paid', 'cancelled']
-  })
-    .notNull()
-    .default('pending'),
+  status: text('status', { enum: ['pending', 'paid', 'cancelled'] }).notNull().default('pending'),
   subtotal: integer('subtotal').notNull().default(0),
   discountPercent: integer('discount_percent').notNull().default(0),
   discount: integer('discount').notNull().default(0),
   deliveryCharge: integer('delivery_charge').notNull().default(0),
+  serviceCharge: integer('service_charge').notNull().default(0),
   taxAmount: integer('tax_amount').notNull().default(0),
   total: integer('total').notNull().default(0),
   note: text('note'),
   userId: integer('user_id').references(() => users.id),
+  customerName: text('customer_name'),
   customerPhone: text('customer_phone'),
   customerAddress: text('customer_address'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`),
-  paidAt: text('paid_at')
+  paidAt: text('paid_at'),
+  kitchenPrintedAt: text('kitchen_printed_at'),
+  amountPaid: integer('amount_paid').notNull().default(0)
+})
+
+export const orderPayments = sqliteTable('order_payments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(),
+  method: text('method').notNull().default('cash'),
+  note: text('note'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now','localtime'))`)
 })
 
 export const orderItems = sqliteTable('order_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  orderId: integer('order_id')
-    .notNull()
-    .references(() => orders.id, { onDelete: 'cascade' }),
+  orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
   productId: integer('product_id').notNull(),
   variantId: integer('variant_id'),
   productName: text('product_name').notNull(),
@@ -108,9 +111,7 @@ export const expenseItems = sqliteTable('expense_items', {
 export const expenses = sqliteTable('expenses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   expenseDate: text('expense_date').notNull(),
-  category: text('category', {
-    enum: ['ingredients', 'utilities', 'salaries', 'rent', 'equipment', 'other']
-  }).notNull(),
+  category: text('category', { enum: ['ingredients', 'utilities', 'salaries', 'rent', 'equipment', 'other'] }).notNull(),
   expenseItemId: integer('expense_item_id').references(() => expenseItems.id),
   quantity: text('quantity'),
   description: text('description'),
