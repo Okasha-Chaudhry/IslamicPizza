@@ -224,15 +224,17 @@ export async function printReceiptEscpos(
   printer.alignCenter()
   printer.drawLine()
   if (settings.receiptFooter) printer.println(settings.receiptFooter)
-  printer.newLine()
-  printer.newLine()
   try {
     await printer.printImage(resourcePath('xiom-logo-print.png'))
   } catch {
     printer.println('Powered by XIOM')
   }
-  printer.println('0310-1617048')
-  printer.cut()
+  printer.println('0301-4442459')
+  // Feed just past the blade before cutting. The print head sits about four
+  // lines above the cutter, so anything less leaves the logo below the blade
+  // and it reappears on top of the next receipt.
+  printer.add(Buffer.from([0x0a, 0x0a, 0x0a, 0x0a]))
+  printer.add(Buffer.from([0x1d, 0x56, 0x00]))
 
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }

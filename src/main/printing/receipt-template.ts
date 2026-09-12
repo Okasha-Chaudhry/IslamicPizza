@@ -105,7 +105,7 @@ export function buildReceiptHtml(
   const footerHtml = isKitchen
     ? ''
     : `${qrHtml}<div class="rule"></div><div class="center small">${esc(settings.receiptFooter)}</div>
-       <div class="center powered">${xiomLogoDataUri() ? `<img class="xiom" src="${xiomLogoDataUri()}" /><br/>` : ''}<span class="small">Powered by XIOM - 0310-1617048</span></div>`
+       <div class="center powered">${xiomLogoDataUri() ? `<img class="xiom" src="${xiomLogoDataUri()}" /><br/>` : ''}<span class="small">Powered by XIOM - 0301-4442459</span></div>`
 
   return `<!DOCTYPE html>
 <html>

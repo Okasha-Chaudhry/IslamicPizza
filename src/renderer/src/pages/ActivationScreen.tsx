@@ -78,7 +78,7 @@ export default function ActivationScreen({ status, onActivated }: Props): React.
       </div>
       <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1 opacity-80">
         <img src={xiomLogo} alt="" className="h-14 dark:invert" />
-        <p className="text-xs text-muted-foreground">Software by XIOM - 0310-1617048</p>
+        <p className="text-xs text-muted-foreground">Software by XIOM - 0301-4442459</p>
       </div>
     </div>
   )
