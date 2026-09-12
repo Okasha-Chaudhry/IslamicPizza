@@ -152,7 +152,7 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
   }
   // 'kitchen' is not a status - it means the kitchen slip has been printed.
   if (filter.status === 'kitchen') {
-    conditions.push("kitchen_printed_at IS NOT NULL AND status != 'cancelled'")
+    conditions.push("kitchen_printed_at IS NOT NULL AND status = 'pending'")
   } else if (filter.status && filter.status !== 'all') {
     conditions.push(`status = ?`)
     params.push(filter.status)
