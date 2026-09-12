@@ -23,6 +23,7 @@ interface CartState {
   customerAddress: string
   discountAmount: number
   deliveryCharge: number
+  serviceCharge: number
   lines: CartLine[]
   startEditing: (orderId: number, orderNumber: string) => void
   stopEditing: () => void
@@ -34,7 +35,9 @@ interface CartState {
   setCustomerAddress: (v: string) => void
   setDiscountAmount: (v: number) => void
   setDeliveryCharge: (v: number) => void
-  addLine: (line: Omit<CartLine, 'key' | 'quantity' | 'note'>) => void
+  setServiceCharge: (v: number) => void
+  addLine: (line: Omit<CartLine, 'key' | 'quantity' | 'note'>, qty?: number) => void
+  setQuantity: (key: string, qty: number) => void
   increment: (key: string) => void
   decrement: (key: string) => void
   removeLine: (key: string) => void
@@ -53,6 +56,7 @@ export const useCartStore = create<CartState>((set) => ({
   customerAddress: '',
   discountAmount: 0,
   deliveryCharge: 0,
+  serviceCharge: 0,
   lines: [],
 
   startEditing: (orderId, orderNumber) => set({ editingOrderId: orderId, editingOrderNumber: orderNumber }),
@@ -65,19 +69,29 @@ export const useCartStore = create<CartState>((set) => ({
   setCustomerAddress: (v) => set({ customerAddress: v }),
   setDiscountAmount: (v) => set({ discountAmount: Math.max(0, Math.round(v) || 0) }),
   setDeliveryCharge: (v) => set({ deliveryCharge: Math.max(0, Math.round(v) || 0) }),
+  setServiceCharge: (v) => set({ serviceCharge: Math.max(0, Math.round(v) || 0) }),
 
-  addLine: (line) =>
+  // qty lets a big order (30 naan) go in with one action instead of 30 taps.
+  addLine: (line, qty = 1) =>
     set((state) => {
+      const add = Math.max(1, Math.round(qty) || 1)
       const key = `${line.productId}:${line.variantId ?? 'base'}`
       const existing = state.lines.find((l) => l.key === key)
       if (existing) {
         return {
           lines: state.lines.map((l) =>
-            l.key === key ? { ...l, quantity: l.quantity + 1 } : l
+            l.key === key ? { ...l, quantity: l.quantity + add } : l
           )
         }
       }
-      return { lines: [...state.lines, { ...line, key, quantity: 1, note: '' }] }
+      return { lines: [...state.lines, { ...line, key, quantity: add, note: '' }] }
+    }),
+
+  setQuantity: (key, qty) =>
+    set((state) => {
+      const n = Math.round(qty)
+      if (n <= 0) return { lines: state.lines.filter((l) => l.key !== key) }
+      return { lines: state.lines.map((l) => (l.key === key ? { ...l, quantity: n } : l)) }
     }),
 
   increment: (key) =>
@@ -111,6 +125,7 @@ export const useCartStore = create<CartState>((set) => ({
       customerAddress: '',
       discountAmount: 0,
       deliveryCharge: 0,
+      serviceCharge: 0,
       lines: []
     })
 }))

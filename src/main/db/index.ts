@@ -140,8 +140,65 @@ const MIGRATIONS: string[] = [
   // v5 - delivery charge on orders
   `
   ALTER TABLE orders ADD COLUMN delivery_charge INTEGER NOT NULL DEFAULT 0;
+  `,
+  // v6 - customer name on every order, manual service charge, part payments,
+  // kitchen printing as a timestamp instead of a status.
+  `
+  ALTER TABLE orders ADD COLUMN customer_name TEXT;
+  ALTER TABLE orders ADD COLUMN service_charge INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE orders ADD COLUMN amount_paid INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE orders ADD COLUMN kitchen_printed_at TEXT;
+  CREATE TABLE IF NOT EXISTS order_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    amount INTEGER NOT NULL,
+    method TEXT NOT NULL DEFAULT 'cash',
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_order_payments_order ON order_payments(order_id);
+  CREATE INDEX IF NOT EXISTS idx_orders_customer_name ON orders(customer_name);
+  UPDATE orders SET kitchen_printed_at = created_at WHERE status = 'kitchen_printed';
+  UPDATE orders SET amount_paid = total WHERE status = 'paid';
+  UPDATE orders SET status = 'pending' WHERE status = 'kitchen_printed';
+  INSERT INTO order_payments (order_id, amount, method, created_at)
+    SELECT id, total, 'cash', COALESCE(paid_at, created_at) FROM orders WHERE status = 'paid';
   `
 ]
+
+// A shipped build can leave user_version ahead of a migration added later, so
+// that migration never runs and the app crashes on a missing column. Adding
+// them defensively lets an existing client database heal on next launch.
+function ensureColumns(conn: Database.Database): void {
+  const cols = (conn.prepare(`PRAGMA table_info(orders)`).all() as { name: string }[]).map(
+    (c) => c.name
+  )
+  const add = (name: string, ddl: string): void => {
+    if (!cols.includes(name)) conn.exec(`ALTER TABLE orders ADD COLUMN ${ddl};`)
+  }
+  add('delivery_charge', 'delivery_charge INTEGER NOT NULL DEFAULT 0')
+  add('customer_name', 'customer_name TEXT')
+  add('service_charge', 'service_charge INTEGER NOT NULL DEFAULT 0')
+  add('amount_paid', 'amount_paid INTEGER NOT NULL DEFAULT 0')
+  add('kitchen_printed_at', 'kitchen_printed_at TEXT')
+  conn.exec(`
+    CREATE TABLE IF NOT EXISTS order_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL,
+      method TEXT NOT NULL DEFAULT 'cash',
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_payments_order ON order_payments(order_id);
+  `)
+  conn.exec(`
+    UPDATE orders SET kitchen_printed_at = created_at
+      WHERE status = 'kitchen_printed' AND kitchen_printed_at IS NULL;
+    UPDATE orders SET amount_paid = total WHERE status = 'paid' AND amount_paid = 0;
+    UPDATE orders SET status = 'pending' WHERE status = 'kitchen_printed';
+  `)
+}
 
 function runMigrations(conn: Database.Database): void {
   const current = conn.pragma('user_version', { simple: true }) as number
@@ -153,6 +210,7 @@ function runMigrations(conn: Database.Database): void {
     migrate()
     console.log(`[db] migration v${v + 1} applied`)
   }
+  ensureColumns(conn)
 }
 
 export function initDatabase(): void {

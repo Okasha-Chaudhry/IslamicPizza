@@ -6,8 +6,17 @@ import type {
   CreateOrderInput,
   OrderWithItems,
   OrderStatus,
-  OrderType
+  OrderType,
+  OrderFilterTab,
+  OrderPayment
 } from '../../shared/types'
+
+// Local time, to match created_at (SQLite datetime('now','localtime')).
+function nowStamp(): string {
+  const d = new Date()
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
 
 function nextOrderNumber(): string {
   const today = new Date()
@@ -27,6 +36,8 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
   const discountInput = Math.max(0, Math.round(input.discountAmount ?? 0))
   const deliveryChargeInput =
     input.orderType === 'delivery' ? Math.max(0, Math.round(input.deliveryCharge ?? 0)) : 0
+  // Service charge is manual and applies to any order type.
+  const serviceChargeInput = Math.max(0, Math.round(input.serviceCharge ?? 0))
 
   const db = getDb()
   const sqlite = getSqlite()
@@ -64,8 +75,8 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
     const subtotal = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0)
     const discount = Math.min(discountInput, subtotal)
     const discountPercent = subtotal > 0 ? Math.round((discount / subtotal) * 100) : 0
-    const total = subtotal - discount + deliveryChargeInput
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const total = subtotal - discount + deliveryChargeInput + serviceChargeInput
+    const now = nowStamp()
 
     const order = db
       .insert(orders)
@@ -80,9 +91,12 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
         discountPercent,
         discount,
         deliveryCharge: deliveryChargeInput,
+        serviceCharge: serviceChargeInput,
+        amountPaid: input.markPaid ? total : 0,
         taxAmount: 0,
         total,
         note: input.note?.trim() || null,
+        customerName: input.customerName?.trim() || null,
         customerPhone: input.orderType === 'delivery' ? (input.customerPhone?.trim() || null) : null,
         customerAddress: input.orderType === 'delivery' ? (input.customerAddress?.trim() || null) : null,
         paidAt: input.markPaid ? now : null
@@ -93,6 +107,12 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
     const savedItems = resolvedItems.map((item) =>
       db.insert(orderItems).values({ ...item, orderId: order.id }).returning().get()
     )
+
+    if (input.markPaid && total > 0) {
+      sqlite
+        .prepare("INSERT INTO order_payments (order_id, amount, method, created_at) VALUES (?, ?, 'cash', ?)")
+        .run(order.id, total, now)
+    }
 
     // Update search ranking counters
     const bump = sqlite.prepare(
@@ -118,7 +138,7 @@ export function createOrder(input: CreateOrderInput): OrderWithItems {
 
 export interface OrderListFilter {
   date?: string // YYYY-MM-DD
-  status?: OrderStatus | 'all'
+  status?: OrderFilterTab
 }
 
 export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
@@ -130,7 +150,10 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
     conditions.push(`date(created_at) = ?`)
     params.push(filter.date)
   }
-  if (filter.status && filter.status !== 'all') {
+  // 'kitchen' is not a status - it means the kitchen slip has been printed.
+  if (filter.status === 'kitchen') {
+    conditions.push("kitchen_printed_at IS NOT NULL AND status != 'cancelled'")
+  } else if (filter.status && filter.status !== 'all') {
     conditions.push(`status = ?`)
     params.push(filter.status)
   }
@@ -184,10 +207,14 @@ export function listOrders(filter: OrderListFilter = {}): OrderWithItems[] {
     taxAmount: r.tax_amount,
     total: r.total,
     note: r.note,
+    customerName: r.customer_name,
     customerPhone: r.customer_phone,
     customerAddress: r.customer_address,
+    serviceCharge: r.service_charge,
+    amountPaid: r.amount_paid,
     createdAt: r.created_at,
     paidAt: r.paid_at,
+    kitchenPrintedAt: r.kitchen_printed_at,
     items: (itemsByOrder.get(r.id as number) ?? []).map(mapItem)
   })) as unknown as OrderWithItems[]
 }
@@ -198,9 +225,11 @@ export function updateOrderItems(input: {
   orderType?: OrderType
   tableId?: number | null
   waiterId?: number | null
+  customerName?: string | null
   customerPhone?: string | null
   customerAddress?: string | null
   deliveryCharge?: number
+  serviceCharge?: number
   note?: string
   items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
 }): OrderWithItems {
@@ -213,8 +242,8 @@ export function updateOrderItems(input: {
   const tx = sqlite.transaction((): OrderWithItems => {
     const existing = db.select().from(orders).where(eq(orders.id, input.orderId)).get()
     if (!existing) throw new Error('Order not found')
-    if (existing.status !== 'pending' && existing.status !== 'kitchen_printed') {
-      throw new Error('Only pending or kitchen orders can be edited')
+    if (existing.status !== 'pending') {
+      throw new Error('Only unpaid orders can be edited')
     }
 
     // Reverse old timesSold
@@ -264,8 +293,9 @@ export function updateOrderItems(input: {
     const newOrderType: OrderType = input.orderType ?? (existing.orderType as OrderType)
     const deliveryChargeInput =
       newOrderType === 'delivery' ? Math.max(0, Math.round(input.deliveryCharge ?? 0)) : 0
-    const total = subtotal - discount + deliveryChargeInput
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const serviceChargeInput = Math.max(0, Math.round(input.serviceCharge ?? existing.serviceCharge))
+    const total = subtotal - discount + deliveryChargeInput + serviceChargeInput
+    const now = nowStamp()
 
     const savedItems = resolvedItems.map((item) =>
       db.insert(orderItems).values(item).returning().get()
@@ -282,6 +312,7 @@ export function updateOrderItems(input: {
       .update(orders)
       .set({
         orderType: newOrderType,
+        customerName: input.customerName?.trim() ?? existing.customerName ?? null,
         tableId: newOrderType === 'dine_in' ? (input.tableId ?? existing.tableId ?? null) : null,
         waiterId: newOrderType === 'dine_in' ? (input.waiterId ?? existing.waiterId ?? null) : null,
         customerPhone:
@@ -296,6 +327,7 @@ export function updateOrderItems(input: {
         discountPercent,
         discount,
         deliveryCharge: deliveryChargeInput,
+        serviceCharge: serviceChargeInput,
         total,
         note: input.note?.trim() || existing.note
       })
@@ -309,13 +341,126 @@ export function updateOrderItems(input: {
   return tx()
 }
 
-export function updateOrderStatus(id: number, status: OrderStatus): OrderWithItems {
+function withItems(id: number): OrderWithItems {
   const db = getDb()
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
-  const changes: Record<string, unknown> = { status }
-  if (status === 'paid') changes.paidAt = now
-  const order = db.update(orders).set(changes).where(eq(orders.id, id)).returning().get()
+  const order = db.select().from(orders).where(eq(orders.id, id)).get()
   if (!order) throw new Error('Order not found')
   const items = db.select().from(orderItems).where(eq(orderItems.orderId, id)).all()
-  return { ...order, items }
+  return { ...order, items } as unknown as OrderWithItems
+}
+
+// Marking an order paid settles whatever is still owed, and records that
+// settlement as a payment so the money trail stays complete.
+export function updateOrderStatus(id: number, status: OrderStatus): OrderWithItems {
+  const db = getDb()
+  const sqlite = getSqlite()
+  const now = nowStamp()
+
+  const tx = sqlite.transaction((): OrderWithItems => {
+    const existing = db.select().from(orders).where(eq(orders.id, id)).get()
+    if (!existing) throw new Error('Order not found')
+
+    const changes: Record<string, unknown> = { status }
+    if (status === 'paid') {
+      const owed = Math.max(0, existing.total - existing.amountPaid)
+      if (owed > 0) {
+        sqlite
+          .prepare(
+            "INSERT INTO order_payments (order_id, amount, method, created_at) VALUES (?, ?, 'cash', ?)"
+          )
+          .run(id, owed, now)
+      }
+      changes.amountPaid = existing.total
+      changes.paidAt = now
+    }
+    db.update(orders).set(changes).where(eq(orders.id, id)).run()
+    return withItems(id)
+  })
+
+  return tx()
+}
+
+// Kitchen printing is a timestamp, not a status: an order stays unpaid until
+// the money is actually collected, which is what the client tracks by.
+export function markKitchenPrinted(id: number): OrderWithItems {
+  const db = getDb()
+  const existing = db.select().from(orders).where(eq(orders.id, id)).get()
+  if (!existing) throw new Error('Order not found')
+  if (!existing.kitchenPrintedAt) {
+    db.update(orders).set({ kitchenPrintedAt: nowStamp() }).where(eq(orders.id, id)).run()
+  }
+  return withItems(id)
+}
+
+// Part payment: records what the customer actually handed over. The order only
+// flips to paid once the running total covers the bill.
+export function addOrderPayment(input: {
+  orderId: number
+  amount: number
+  method?: string
+  note?: string
+}): OrderWithItems {
+  const amount = Math.round(input.amount)
+  if (amount <= 0) throw new Error('Payment must be greater than zero')
+
+  const db = getDb()
+  const sqlite = getSqlite()
+  const now = nowStamp()
+
+  const tx = sqlite.transaction((): OrderWithItems => {
+    const existing = db.select().from(orders).where(eq(orders.id, input.orderId)).get()
+    if (!existing) throw new Error('Order not found')
+    if (existing.status === 'cancelled') throw new Error('Order is cancelled')
+
+    const owed = Math.max(0, existing.total - existing.amountPaid)
+    if (owed === 0) throw new Error('Order is already fully paid')
+    if (amount > owed) throw new Error('Only Rs ' + owed + ' is outstanding on this order')
+
+    sqlite
+      .prepare(
+        'INSERT INTO order_payments (order_id, amount, method, note, created_at) VALUES (?, ?, ?, ?, ?)'
+      )
+      .run(input.orderId, amount, input.method?.trim() || 'cash', input.note?.trim() || null, now)
+
+    const paidNow = existing.amountPaid + amount
+    const settled = paidNow >= existing.total
+    db.update(orders)
+      .set({
+        amountPaid: paidNow,
+        status: settled ? 'paid' : existing.status,
+        paidAt: settled ? now : existing.paidAt
+      })
+      .where(eq(orders.id, input.orderId))
+      .run()
+
+    return withItems(input.orderId)
+  })
+
+  return tx()
+}
+
+export function listOrderPayments(orderId: number): OrderPayment[] {
+  return getSqlite()
+    .prepare(
+      'SELECT id, order_id as orderId, amount, method, note, created_at as createdAt FROM order_payments WHERE order_id = ? ORDER BY id ASC'
+    )
+    .all(orderId) as OrderPayment[]
+}
+
+// Everything still owed, newest first, for the customer-ledger screen.
+export function listUnpaidOrders(query?: string): OrderWithItems[] {
+  const sqlite = getSqlite()
+  const params: unknown[] = []
+  let where = "WHERE status = 'pending' AND amount_paid < total"
+  if (query?.trim()) {
+    // One box searches both: a takeaway customer has no phone, so the name is
+    // the only way to find what they still owe.
+    where += ' AND (customer_phone LIKE ? OR customer_name LIKE ?)'
+    const q = '%' + query.trim() + '%'
+    params.push(q, q)
+  }
+  const rows = sqlite
+    .prepare('SELECT id FROM orders ' + where + ' ORDER BY id DESC LIMIT 500')
+    .all(...params) as { id: number }[]
+  return rows.map((r) => withItems(r.id))
 }

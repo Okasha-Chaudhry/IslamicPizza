@@ -53,6 +53,8 @@ export default function NewOrder(): React.JSX.Element {
   const [tables, setTables] = useState<NamedEntity[]>([])
   const [waiters, setWaiters] = useState<NamedEntity[]>([])
   const [query, setQuery] = useState('')
+  // Set once, applies to the next item picked - 30 naan in one action.
+  const [bulkQty, setBulkQty] = useState('')
   const [activeCat, setActiveCat] = useState<number | null>(null)
   const [variantProduct, setVariantProduct] = useState<ProductWithVariants | null>(null)
   const [error, setError] = useState('')
@@ -187,13 +189,17 @@ export default function NewOrder(): React.JSX.Element {
     if (p.hasVariants) {
       setVariantProduct(p)
     } else {
-      cart.addLine({
-        productId: p.id,
-        variantId: null,
-        productName: p.name,
-        variantName: null,
-        unitPrice: p.price
-      })
+      cart.addLine(
+        {
+          productId: p.id,
+          variantId: null,
+          productName: p.name,
+          variantName: null,
+          unitPrice: p.price
+        },
+        Number(bulkQty) || 1
+      )
+      setBulkQty('')
       setQuery('')
       searchRef.current?.focus()
     }
@@ -201,13 +207,17 @@ export default function NewOrder(): React.JSX.Element {
 
   function pickVariant(v: Variant): void {
     if (!variantProduct) return
-    cart.addLine({
-      productId: variantProduct.id,
-      variantId: v.id,
-      productName: variantProduct.name,
-      variantName: v.name,
-      unitPrice: v.price
-    })
+    cart.addLine(
+      {
+        productId: variantProduct.id,
+        variantId: v.id,
+        productName: variantProduct.name,
+        variantName: v.name,
+        unitPrice: v.price
+      },
+      Number(bulkQty) || 1
+    )
+    setBulkQty('')
     setVariantProduct(null)
     setQuery('')
     searchRef.current?.focus()
@@ -216,7 +226,7 @@ export default function NewOrder(): React.JSX.Element {
   const subtotal = cartSubtotal(cart.lines)
   const discountAmount = Math.min(cart.discountAmount, subtotal)
   const deliveryCharge = cart.orderType === 'delivery' ? cart.deliveryCharge : 0
-  const total = subtotal - discountAmount + deliveryCharge
+  const total = subtotal - discountAmount + deliveryCharge + cart.serviceCharge
 
   async function updateOrder(): Promise<void> {
     setError('')
@@ -233,9 +243,11 @@ export default function NewOrder(): React.JSX.Element {
       orderType: cart.orderType,
       tableId: cart.tableId,
       waiterId: cart.waiterId,
+      customerName: cart.customerName,
       customerPhone: cart.customerPhone,
       customerAddress: cart.customerAddress,
       deliveryCharge: cart.deliveryCharge,
+      serviceCharge: cart.serviceCharge,
       items: cart.lines.map((l) => ({
         productId: l.productId,
         variantId: l.variantId,
@@ -276,6 +288,7 @@ export default function NewOrder(): React.JSX.Element {
       customerAddress: cart.customerAddress,
       discountAmount: cart.discountAmount,
       deliveryCharge: cart.deliveryCharge,
+      serviceCharge: cart.serviceCharge,
       markPaid,
       items: cart.lines.map((l) => ({
         productId: l.productId,
@@ -291,10 +304,6 @@ export default function NewOrder(): React.JSX.Element {
       return
     }
     let order = res.data
-    if (action === 'kitchen_slip') {
-      const up = await window.api.orders.updateStatus(order.id, 'kitchen_printed')
-      if (up.ok && up.data) order = up.data
-    }
     let printNote = ''
     if (action === 'paid_print' || action === 'print_receipt') {
       const pr = await window.api.print.receipt(order)
@@ -302,8 +311,13 @@ export default function NewOrder(): React.JSX.Element {
     } else if (action === 'kitchen_slip') {
       const pr = await window.api.print.kitchen(order)
       printNote = pr.ok ? ' - kitchen slip printed' : ' - (printer issue - order saved)'
+      // Record the print only if the slip came out; the order stays unpaid.
+      if (pr.ok) {
+        const up = await window.api.orders.markKitchenPrinted(order.id)
+        if (up.ok && up.data) order = up.data
+      }
     }
-    setSavedMsg(`Order ${order.orderNumber} saved (${order.status.replace('_', ' ')}) - Rs ${order.total}${printNote}`)
+    setSavedMsg(`Order ${order.orderNumber} saved (${order.status}) - Rs ${order.total}${printNote}`)
     cart.clear()
     setQuery('')
     setSaving(false)
@@ -380,6 +394,15 @@ export default function NewOrder(): React.JSX.Element {
               </SelectContent>
             </Select>
           </div>
+        )}
+
+        {cart.orderType !== 'delivery' && (
+          <Input
+            className="h-11 w-64"
+            placeholder="Customer Name (optional)"
+            value={cart.customerName}
+            onChange={(e) => cart.setCustomerName(e.target.value)}
+          />
         )}
 
         {cart.orderType === 'delivery' && (
@@ -486,8 +509,40 @@ export default function NewOrder(): React.JSX.Element {
           )}
         </div>
 
+        <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2">
+          <span className="text-xs font-medium text-muted-foreground">Quantity for next item</span>
+          <Input
+            type="number"
+            min="1"
+            className="h-9 w-24 text-center text-base font-bold"
+            placeholder="1"
+            value={bulkQty}
+            onChange={(e) => setBulkQty(e.target.value)}
+          />
+          {[5, 10, 15, 20, 30].map((n) => (
+            <Button
+              key={n}
+              variant={String(n) === bulkQty ? 'default' : 'outline'}
+              size="sm"
+              className="h-9 w-11"
+              onClick={() => setBulkQty(String(n))}
+            >
+              {n}
+            </Button>
+          ))}
+          {bulkQty !== '' && (
+            <Button variant="ghost" size="sm" className="h-9" onClick={() => setBulkQty('')}>
+              Clear
+            </Button>
+          )}
+        </div>
+
         {query.trim() === '' && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-1.5 rounded-md border bg-muted/40 p-2">
+            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Categories
+            </p>
+            <div className="flex flex-wrap gap-1.5">
             <Button
               variant={activeCat === null ? 'default' : 'outline'}
               size="sm"
@@ -507,8 +562,13 @@ export default function NewOrder(): React.JSX.Element {
                 {c.name}
               </Button>
             ))}
+            </div>
           </div>
         )}
+
+        <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Menu Items
+        </p>
 
         <div
           ref={gridRef}
@@ -585,7 +645,13 @@ export default function NewOrder(): React.JSX.Element {
                   >
                     <Minus className="size-3" />
                   </Button>
-                  <span className="w-8 text-center text-sm font-medium">{l.quantity}</span>
+                  <input
+                    type="number"
+                    min="1"
+                    className="h-8 w-14 rounded border border-input bg-background text-center text-sm font-bold"
+                    value={l.quantity}
+                    onChange={(e) => cart.setQuantity(l.key, Number(e.target.value))}
+                  />
                   <Button
                     variant="outline"
                     size="icon"
@@ -627,6 +693,20 @@ export default function NewOrder(): React.JSX.Element {
                 onChange={(e) => cart.setDiscountAmount(Number(e.target.value))}
               />
               <span className="w-16 text-right text-muted-foreground">- Rs {discountAmount}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span>Service Rs</span>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="0"
+                className="h-8 w-16 text-right"
+                value={cart.serviceCharge === 0 ? '' : cart.serviceCharge}
+                placeholder="0"
+                onChange={(e) => cart.setServiceCharge(Number(e.target.value))}
+              />
+              <span className="w-16 text-right text-muted-foreground">+ Rs {cart.serviceCharge}</span>
             </div>
           </div>
           {cart.orderType === 'delivery' && (

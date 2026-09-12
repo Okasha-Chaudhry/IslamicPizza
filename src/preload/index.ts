@@ -16,6 +16,8 @@ import type {
   CreateOrderInput,
   OrderWithItems,
   OrderStatus,
+  OrderFilterTab,
+  OrderPayment,
   AppSettings,
   PrinterInfo,
   SalesReport,
@@ -129,21 +131,31 @@ const api = {
       ipcRenderer.invoke('print:kitchen', order)
   },
   orders: {
-    list: (filter?: { date?: string; status?: OrderStatus | 'all' }): Promise<ApiResult<OrderWithItems[]>> =>
+    list: (filter?: { date?: string; status?: OrderFilterTab }): Promise<ApiResult<OrderWithItems[]>> =>
       ipcRenderer.invoke('orders:list', filter),
     create: (input: CreateOrderInput): Promise<ApiResult<OrderWithItems>> =>
       ipcRenderer.invoke('orders:create', input),
     updateStatus: (id: number, status: OrderStatus): Promise<ApiResult<OrderWithItems>> =>
       ipcRenderer.invoke('orders:updateStatus', id, status),
+    markKitchenPrinted: (id: number): Promise<ApiResult<OrderWithItems>> =>
+      ipcRenderer.invoke('orders:markKitchenPrinted', id),
+    addPayment: (input: { orderId: number; amount: number; method?: string; note?: string }): Promise<ApiResult<OrderWithItems>> =>
+      ipcRenderer.invoke('orders:addPayment', input),
+    payments: (orderId: number): Promise<ApiResult<OrderPayment[]>> =>
+      ipcRenderer.invoke('orders:payments', orderId),
+    unpaid: (query?: string): Promise<ApiResult<OrderWithItems[]>> =>
+      ipcRenderer.invoke('orders:unpaid', query),
     updateItems: (input: {
       orderId: number
       discountAmount: number
       orderType?: OrderType
       tableId?: number | null
       waiterId?: number | null
+      customerName?: string | null
       customerPhone?: string | null
       customerAddress?: string | null
       deliveryCharge?: number
+      serviceCharge?: number
       note?: string
       items: { productId: number; variantId: number | null; quantity: number; note?: string }[]
     }): Promise<ApiResult<OrderWithItems>> => ipcRenderer.invoke('orders:updateItems', input)

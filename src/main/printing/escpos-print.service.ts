@@ -180,6 +180,7 @@ export async function printReceiptEscpos(
   if (names.tableName) printer.println(`Table: ${names.tableName}`)
   if (names.waiterName) printer.println(`Waiter: ${names.waiterName}`)
   if (names.servedBy) printer.println(`Served by: ${names.servedBy}`)
+  if (order.customerName) printer.println('Name: ' + order.customerName)
   if (order.customerPhone) printer.println(`Phone: ${order.customerPhone}`)
   if (order.customerAddress) printer.println(`Address: ${order.customerAddress}`)
   printer.drawLine()
@@ -196,11 +197,14 @@ export async function printReceiptEscpos(
   }
   printer.drawLine()
 
-  if (order.discount > 0 || order.deliveryCharge > 0) {
+  if (order.discount > 0 || order.deliveryCharge > 0 || order.serviceCharge > 0) {
     printer.println(padRow('Subtotal:', money(order.subtotal), L))
   }
   if (order.discount > 0) {
     printer.println(padRow('Discount:', '-' + money(order.discount), L))
+  }
+  if (order.serviceCharge > 0) {
+    printer.println(padRow('Service:', '+' + money(order.serviceCharge), L))
   }
   if (order.deliveryCharge > 0) {
     printer.println(padRow('Delivery:', '+' + money(order.deliveryCharge), L))
@@ -210,6 +214,12 @@ export async function printReceiptEscpos(
   printer.println(padRow('TOTAL:', money(order.total), L))
   printer.setTextNormal()
   printer.bold(false)
+  if (order.amountPaid > 0 && order.amountPaid < order.total) {
+    printer.println(padRow('Paid:', money(order.amountPaid), L))
+    printer.bold(true)
+    printer.println(padRow('BALANCE:', money(order.total - order.amountPaid), L))
+    printer.bold(false)
+  }
 
   printer.alignCenter()
   printer.drawLine()
@@ -249,6 +259,11 @@ export async function printKitchenEscpos(
   printer.bold(false)
   printer.println(new Date(order.createdAt).toLocaleString())
   if (names.tableName) printer.println(`Table: ${names.tableName}`)
+  if (order.customerName) {
+    printer.bold(true)
+    printer.println('Name: ' + order.customerName)
+    printer.bold(false)
+  }
   printer.drawLine()
 
   printer.alignLeft()

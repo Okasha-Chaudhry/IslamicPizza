@@ -9,6 +9,7 @@ import MainLayout from '@/layouts/MainLayout'
 import Dashboard from '@/pages/Dashboard'
 import NewOrder from '@/pages/NewOrder'
 import Orders from '@/pages/Orders'
+import Ledger from '@/pages/Ledger'
 import Products from '@/pages/Products'
 import Categories from '@/pages/Categories'
 import Tables from '@/pages/Tables'
@@ -68,6 +69,7 @@ function App(): React.JSX.Element {
               <Route path="/" element={<Dashboard />} />
               <Route path="/new-order" element={<NewOrder />} />
               <Route path="/orders" element={<Orders />} />
+              <Route path="/ledger" element={<Ledger />} />
               <Route path="/products" element={<AdminOnly><Products /></AdminOnly>} />
               <Route path="/categories" element={<AdminOnly><Categories /></AdminOnly>} />
               <Route path="/tables" element={<AdminOnly><Tables /></AdminOnly>} />
