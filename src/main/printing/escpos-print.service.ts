@@ -1,9 +1,9 @@
+import { app } from 'electron'
 import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer'
-import { writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { execFile } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, writeFileSync, unlinkSync, appendFileSync } from 'fs'
 import type { OrderWithItems, AppSettings } from '../../shared/types'
 import { getSettings } from '../services/settings.service'
 
@@ -38,6 +38,15 @@ function resourcePath(file: string): string {
   return join(process.resourcesPath, 'resources', file)
 }
 
+// Feed past the blade, then cut the way this printer actually supports.
+// Both are settings because the gap and the cut command vary by model.
+function cutPaper(printer: ThermalPrinter, settings: AppSettings): void {
+  const lines = Math.max(0, Math.min(20, settings.cutFeedLines))
+  if (lines > 0) printer.add(Buffer.from(new Array(lines).fill(0x0a)))
+  if (settings.cutStyle === 'none') return
+  printer.add(Buffer.from([0x1d, 0x56, settings.cutStyle === 'partial' ? 0x01 : 0x00]))
+}
+
 function makePrinter(width: number): ThermalPrinter {
   const printer = new ThermalPrinter({
     type: PrinterTypes.EPSON,
@@ -56,50 +65,145 @@ function makePrinter(width: number): ThermalPrinter {
   return printer
 }
 
-async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
-  if (!printerName) throw new Error('No printer selected in Settings')
-  const tmpFile = join(tmpdir(), `escpos-${Date.now()}.prn`)
-  writeFileSync(tmpFile, buffer)
-  const psScript = `
-$printer = "${printerName.replace(/"/g, '""')}"
-$path = "${tmpFile.replace(/\\/g, '\\\\')}"
-$bytes = [System.IO.File]::ReadAllBytes($path)
-$src = @"
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-public class RawPrint {
-  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Ansi)]
-  public struct DOCINFOA { [MarshalAs(UnmanagedType.LPStr)] public string pDocName; [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile; [MarshalAs(UnmanagedType.LPStr)] public string pDataType; }
-  [DllImport("winspool.Drv", EntryPoint="OpenPrinterA", SetLastError=true, CharSet=CharSet.Ansi)] public static extern bool OpenPrinter(string src, out IntPtr hPrinter, IntPtr pd);
-  [DllImport("winspool.Drv", EntryPoint="ClosePrinter", SetLastError=true)] public static extern bool ClosePrinter(IntPtr hPrinter);
-  [DllImport("winspool.Drv", EntryPoint="StartDocPrinterA", SetLastError=true, CharSet=CharSet.Ansi)] public static extern bool StartDocPrinter(IntPtr hPrinter, int level, ref DOCINFOA di);
-  [DllImport("winspool.Drv", EntryPoint="EndDocPrinter", SetLastError=true)] public static extern bool EndDocPrinter(IntPtr hPrinter);
-  [DllImport("winspool.Drv", EntryPoint="StartPagePrinter", SetLastError=true)] public static extern bool StartPagePrinter(IntPtr hPrinter);
-  [DllImport("winspool.Drv", EntryPoint="EndPagePrinter", SetLastError=true)] public static extern bool EndPagePrinter(IntPtr hPrinter);
-  [DllImport("winspool.Drv", EntryPoint="WritePrinter", SetLastError=true)] public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);
-  public static void Send(string name, byte[] bytes) {
-    IntPtr h;
-    if (!OpenPrinter(name, out h, IntPtr.Zero)) throw new Exception("OpenPrinter failed - check printer name");
-    DOCINFOA di = new DOCINFOA(); di.pDocName = "Receipt"; di.pDataType = "RAW";
-    StartDocPrinter(h, 1, ref di); StartPagePrinter(h);
-    int written; WritePrinter(h, bytes, bytes.Length, out written);
-    EndPagePrinter(h); EndDocPrinter(h); ClosePrinter(h);
-  }
-}
-"@
-Add-Type -TypeDefinition $src -Language CSharp
-[RawPrint]::Send($printer, $bytes)
-`
-  await new Promise<void>((resolve, reject) => {
-    execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], (err) => {
-      try { unlinkSync(tmpFile) } catch { /* ignore */ }
-      if (err) reject(new Error(err.message))
+function runCmd(cmd: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, (err) => {
+      if (err) reject(err)
       else resolve()
     })
   })
 }
 
+function logLine(text: string): void {
+  try {
+    appendFileSync(join(app.getPath('userData'), 'print-log.txt'), new Date().toISOString() + ' ' + text + '\n')
+  } catch {
+    // logging must never break a sale
+  }
+}
+
+// --- one function per route to the printer -------------------------------
+// Each throws on failure with a message the installer can act on, so the
+// Settings screen can show exactly why a method did not work.
+
+// Windows spooler, raw pass-through. Correct route on a machine with the
+// vendor driver installed.
+async function viaSpooler(printerName: string, buffer: Buffer): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const rawprint = require('winrawprinter')
+  await rawprint.PrintBufferToPrinterAsync(buffer, printerName)
+}
+
+// Share the printer and copy bytes to the share. Works where the spooler
+// refuses raw data (seen on some POS-80C units).
+async function viaShare(printerName: string, buffer: Buffer): Promise<void> {
+  const shareName = 'POS_' + printerName.replace(/[^A-Za-z0-9]/g, '')
+  const tmpFile = join(tmpdir(), 'escpos-' + Date.now() + '.prn')
+  try {
+    writeFileSync(tmpFile, buffer)
+    const q = String.fromCharCode(39)
+    const nameEsc = printerName.split(q).join(q + q)
+    const psShare =
+      '$p=Get-WmiObject Win32_Printer -Filter ' + q + 'Name=' + q + q + nameEsc + q + q + q + '; ' +
+      'if($p){ if(-not $p.Shared){ $p.Shared=$true; $p.ShareName=' + q + shareName + q + '; $p.Put() | Out-Null } }'
+    await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psShare])
+    await runCmd('cmd', ['/c', 'copy', '/b', tmpFile, '\\\\localhost\\' + shareName])
+  } finally {
+    try { unlinkSync(tmpFile) } catch { /* ignore */ }
+  }
+}
+
+// Straight to the port, bypassing the driver entirely. This is the fallback
+// when the machine has the wrong driver (or "Generic / Text Only") installed.
+async function viaPort(port: string, buffer: Buffer): Promise<void> {
+  if (!port) throw new Error('No printer port set in Settings (e.g. USB001 or COM3)')
+  const target = /^COM\d+$/i.test(port) ? '\\\\.\\' + port.toUpperCase() : port
+  const tmpFile = join(tmpdir(), 'escpos-' + Date.now() + '.prn')
+  try {
+    writeFileSync(tmpFile, buffer)
+    await runCmd('cmd', ['/c', 'copy', '/b', tmpFile, target])
+  } finally {
+    try { unlinkSync(tmpFile) } catch { /* ignore */ }
+  }
+}
+
+// Ports Windows currently knows about, offered as suggestions in Settings.
+export function listPrinterPorts(): string[] {
+  return ['USB001', 'USB002', 'USB003', 'COM1', 'COM2', 'COM3', 'COM4', 'LPT1']
+}
+
+// Send bytes using the configured method. 'auto' walks the routes in order of
+// how often they work, so an untouched install still prints on most machines.
+export async function sendRaw(printerName: string, buffer: Buffer): Promise<void> {
+  const settings = getSettings()
+  const method = settings.printMethod || 'auto'
+  if (!printerName && method !== 'port') throw new Error('No printer selected in Settings')
+
+  const attempt = async (name: string, fn: () => Promise<void>): Promise<void> => {
+    await fn()
+    logLine('printed ' + buffer.length + ' bytes via ' + name + ' OK')
+  }
+
+  if (method === 'spooler') return attempt('spooler', () => viaSpooler(printerName, buffer))
+  if (method === 'share') return attempt('share', () => viaShare(printerName, buffer))
+  if (method === 'port') return attempt('port', () => viaPort(settings.printerPort, buffer))
+  if (method === 'driver') {
+    throw new Error('Windows Driver method is only available for receipts, not raw test prints')
+  }
+
+  const errors: string[] = []
+  for (const [name, fn] of [
+    ['spooler', () => viaSpooler(printerName, buffer)],
+    ['share', () => viaShare(printerName, buffer)],
+    ['port', () => viaPort(settings.printerPort, buffer)]
+  ] as [string, () => Promise<void>][]) {
+    try {
+      await attempt(name, fn)
+      return
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push(name + ': ' + msg)
+      logLine(name + ' failed (' + msg + ')')
+    }
+  }
+  throw new Error('All print methods failed - ' + errors.join(' | '))
+}
+
+// Try one method on demand and report back, so the Settings screen can show
+// which route works on this machine without anyone reading a log file.
+export async function testPrintMethod(method: string): Promise<{ ok: boolean; detail: string }> {
+  const settings = getSettings()
+  const L = layout(settings)
+  const printer = makePrinter(L.width)
+  printer.alignCenter()
+  printer.bold(true)
+  printer.println('PRINT METHOD TEST')
+  printer.bold(false)
+  printer.println(method.toUpperCase())
+  printer.println(new Date().toLocaleString())
+  printer.drawLine()
+  printer.alignLeft()
+  let ruler = ''
+  for (let i = 1; i <= L.width; i++) ruler += String(i % 10)
+  printer.println(ruler)
+  printer.alignCenter()
+  printer.println('If this came out, this method works')
+  cutPaper(printer, settings)
+  const buffer = printer.getBuffer()
+
+  try {
+    if (method === 'spooler') await viaSpooler(settings.defaultPrinter, buffer)
+    else if (method === 'share') await viaShare(settings.defaultPrinter, buffer)
+    else if (method === 'port') await viaPort(settings.printerPort, buffer)
+    else await sendRaw(settings.defaultPrinter, buffer)
+    logLine('method test ' + method + ' OK')
+    return { ok: true, detail: 'Sent - check the printer' }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    logLine('method test ' + method + ' FAILED: ' + msg)
+    return { ok: false, detail: msg }
+  }
+}
 function money(n: number): string {
   return `Rs ${n}`
 }
@@ -224,17 +328,18 @@ export async function printReceiptEscpos(
   printer.alignCenter()
   printer.drawLine()
   if (settings.receiptFooter) printer.println(settings.receiptFooter)
-  try {
-    await printer.printImage(resourcePath('xiom-logo-print.png'))
-  } catch {
-    printer.println('Powered by XIOM')
+  if (settings.printLogo) {
+    try {
+      await printer.printImage(resourcePath('xiom-logo-print.png'))
+    } catch {
+      printer.println('Powered by XIOM')
+    }
   }
   printer.println('0301-4442459')
   // Feed just past the blade before cutting. The print head sits about four
   // lines above the cutter, so anything less leaves the logo below the blade
   // and it reappears on top of the next receipt.
-  printer.add(Buffer.from([0x0a, 0x0a, 0x0a, 0x0a]))
-  printer.add(Buffer.from([0x1d, 0x56, 0x00]))
+  cutPaper(printer, settings)
 
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
@@ -278,7 +383,7 @@ export async function printKitchenEscpos(
     printer.bold(false)
     if (item.note) printer.println(`    * ${item.note}`)
   }
-  printer.cut()
+  cutPaper(printer, settings)
 
   await sendRaw(printerName, printer.getBuffer())
 }
@@ -337,7 +442,7 @@ export async function printReportEscpos(
 
   printer.alignCenter()
   printer.println(`Printed: ${new Date().toLocaleString()}`)
-  printer.cut()
+  cutPaper(printer, settings)
 
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }
@@ -376,7 +481,7 @@ export async function testPrintEscpos(printerName: string): Promise<void> {
   printer.alignCenter()
   printer.println('If columns line up, printer is OK')
   printer.println('Powered by XIOM')
-  printer.cut()
+  cutPaper(printer, settings)
   await sendRaw(printerName, printer.getBuffer())
 }
 
@@ -385,6 +490,6 @@ export async function rawTestPrint(text: string): Promise<void> {
   const L = layout(settings)
   const printer = makePrinter(L.width)
   for (const line of text.split('\n')) printer.println(line)
-  printer.cut()
+  cutPaper(printer, settings)
   await sendRaw(settings.defaultPrinter, printer.getBuffer())
 }

@@ -17,6 +17,10 @@ export default function Settings(): React.JSX.Element {
   const [printers, setPrinters] = useState<PrinterInfo[]>([])
   const [msg, setMsg] = useState('')
   const [saving, setSaving] = useState(false)
+  // Which route to the printer works on this machine - filled in by the
+  // Test buttons so the installer can see it instead of reading a log file.
+  const [methodResults, setMethodResults] = useState<Record<string, string>>({})
+  const [testing, setTesting] = useState('')
 
   useEffect(() => {
     void (async () => {
@@ -241,6 +245,132 @@ export default function Settings(): React.JSX.Element {
           Printers are detected from Windows. If a test print does not come out, make sure the
           printer cable is in its usual USB socket, then power the printer off and on.
         </p>
+
+        <div className="space-y-3 rounded-md border p-3">
+          <div>
+            <Label className="text-sm font-semibold">How to reach the printer</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Different machines need different routes. Press Test on each until paper comes out,
+              then select that one and save. Automatic tries them in order and suits most machines.
+              The Windows driver route prints as an image through the printer's own driver, so the
+              cut and feed settings below do not apply to it.
+            </p>
+          </div>
+
+          {(
+            [
+              ['auto', 'Automatic (try each in turn)'],
+              ['spooler', 'Windows spooler (raw)'],
+              ['share', 'Printer share (copy)'],
+              ['port', 'Direct port (no driver)'],
+              ['driver', 'Windows driver (graphics)']
+            ] as [string, string][]
+          ).map(([key, label]) => (
+            <div key={key} className="flex items-center gap-3">
+              <input
+                type="radio"
+                id={'pm-' + key}
+                name="printMethod"
+                className="size-4"
+                checked={settings.printMethod === key}
+                onChange={() => set('printMethod', key as AppSettings['printMethod'])}
+              />
+              <label htmlFor={'pm-' + key} className="flex-1 text-sm">
+                {label}
+              </label>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-20"
+                disabled={testing !== ''}
+                onClick={async () => {
+                  setTesting(key)
+                  setMethodResults((r) => ({ ...r, [key]: 'Testing...' }))
+                  const res = await window.api.print.testMethod(key)
+                  const detail = res.ok && res.data ? res.data.detail : (res.error ?? 'Failed')
+                  const ok = res.ok && res.data ? res.data.ok : false
+                  setMethodResults((r) => ({ ...r, [key]: (ok ? 'OK - ' : 'Failed - ') + detail }))
+                  setTesting('')
+                }}
+              >
+                {testing === key ? '...' : 'Test'}
+              </Button>
+            </div>
+          ))}
+
+          {Object.entries(methodResults).map(([key, text]) => (
+            <p
+              key={key}
+              className={
+                'text-xs ' + (text.startsWith('OK') ? 'text-green-600' : 'text-destructive')
+              }
+            >
+              {key}: {text}
+            </p>
+          ))}
+
+          {settings.printMethod === 'port' && (
+            <div className="space-y-1">
+              <Label className="text-sm">Printer port</Label>
+              <Input
+                className="h-11 w-40"
+                placeholder="USB001"
+                value={settings.printerPort}
+                onChange={(e) => set('printerPort', e.target.value.trim())}
+              />
+              <p className="text-xs text-muted-foreground">
+                Found in Windows under Printer Properties, Ports. Usually USB001 or COM3.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-sm">Blank lines before the cut</Label>
+            <Input
+              type="number"
+              min="0"
+              max="20"
+              className="h-11 w-24"
+              value={settings.cutFeedLines}
+              onChange={(e) => set('cutFeedLines', Math.max(0, Number(e.target.value) || 0))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Raise this if the last line is cut off; lower it if there is too much blank paper.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-sm">Cut</Label>
+            <Select
+              value={settings.cutStyle}
+              onValueChange={(v) => set('cutStyle', v as AppSettings['cutStyle'])}
+            >
+              <SelectTrigger className="h-11 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="full">Full cut</SelectItem>
+                <SelectItem value="partial">Partial cut</SelectItem>
+                <SelectItem value="none">No cut (tear off)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <input
+              type="checkbox"
+              id="printLogo"
+              className="size-4"
+              checked={settings.printLogo}
+              onChange={(e) => set('printLogo', e.target.checked)}
+            />
+            <label htmlFor="printLogo" className="text-sm">
+              Print the XIOM mark at the bottom of the receipt
+            </label>
+          </div>
+        </div>
       </section>
 
       <UsersManager />

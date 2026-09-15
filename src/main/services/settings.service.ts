@@ -1,4 +1,5 @@
 import { getSqlite } from '../db'
+import type { PrintMethod } from '../../shared/types'
 
 export interface AppSettings {
   restaurantName: string
@@ -11,6 +12,11 @@ export interface AppSettings {
   kitchenPrinter: string
   receiptWidth: '58' | '80' | 'A4'
   charsPerLine: number
+  printMethod: PrintMethod
+  printerPort: string
+  cutFeedLines: number
+  cutStyle: 'full' | 'partial' | 'none'
+  printLogo: boolean
   receiptLogo: string
   paymentQr: string
 }
@@ -26,6 +32,11 @@ const DEFAULTS: AppSettings = {
   kitchenPrinter: '',
   receiptWidth: '80',
   charsPerLine: 0,
+  printMethod: 'auto',
+  printerPort: '',
+  cutFeedLines: 4,
+  cutStyle: 'full',
+  printLogo: true,
   receiptLogo: '',
   paymentQr: ''
 }
@@ -36,7 +47,14 @@ export function getSettings(): AppSettings {
     value: string
   }[]
   const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]))
-  return { ...DEFAULTS, ...stored } as AppSettings
+  const merged = { ...DEFAULTS, ...stored } as Record<string, unknown>
+  // Everything is kept as text in the settings table, so anything that is not
+  // a string has to be converted back or the UI gets "4" instead of 4.
+  merged.charsPerLine = Number(merged.charsPerLine) || 0
+  merged.cutFeedLines = Number(merged.cutFeedLines)
+  if (!Number.isFinite(merged.cutFeedLines as number)) merged.cutFeedLines = 4
+  merged.printLogo = String(merged.printLogo) !== 'false'
+  return merged as unknown as AppSettings
 }
 
 export function saveSettings(input: Partial<AppSettings>): AppSettings {

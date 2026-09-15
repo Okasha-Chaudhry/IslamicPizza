@@ -20,6 +20,7 @@ import type {
   OrderPayment,
   AppSettings,
   PrinterInfo,
+  PrintMethodResult,
   SalesReport,
   SafeUser,
   UserRole,
@@ -124,6 +125,8 @@ const api = {
   print: {
     raw: (text: string): Promise<ApiResult<void>> => ipcRenderer.invoke('print:raw', text),
     test: (): Promise<ApiResult<void>> => ipcRenderer.invoke('print:test'),
+    testMethod: (method: string): Promise<ApiResult<PrintMethodResult>> =>
+      ipcRenderer.invoke('print:testMethod', method),
     report: (report: SalesReport): Promise<ApiResult<void>> => ipcRenderer.invoke('print:report', report),
     receipt: (order: OrderWithItems): Promise<ApiResult<void>> =>
       ipcRenderer.invoke('print:receipt', order),

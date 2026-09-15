@@ -49,6 +49,9 @@ export function buildReceiptHtml(
   const typeLabel = ORDER_TYPE_LABEL[order.orderType] ?? order.orderType
 
   const metaLines: string[] = []
+  // The name is how staff match a slip to a waiting customer, so it belongs on
+  // every order type, not just delivery.
+  if (order.customerName) metaLines.push(`Name: ${esc(order.customerName)}`)
   if (order.orderType === 'dine_in') {
     if (extra.tableName) metaLines.push(`Table: ${esc(extra.tableName)}`)
     if (extra.waiterName) metaLines.push(`Waiter: ${esc(extra.waiterName)}`)
@@ -75,17 +78,33 @@ export function buildReceiptHtml(
     })
     .join('')
 
+  const extraRows: string[] = []
+  if (order.discount > 0) {
+    extraRows.push(`<tr><td>Discount</td><td class="num">- ${cur} ${order.discount}</td></tr>`)
+  }
+  if (order.serviceCharge > 0) {
+    extraRows.push(`<tr><td>Service Charges</td><td class="num">${cur} ${order.serviceCharge}</td></tr>`)
+  }
+  if (order.deliveryCharge > 0) {
+    extraRows.push(`<tr><td>Delivery Charges</td><td class="num">${cur} ${order.deliveryCharge}</td></tr>`)
+  }
+
+  // A part-paid order has to show what is still owed, or the customer has no
+  // record of the balance.
+  const balanceRows =
+    order.amountPaid > 0 && order.amountPaid < order.total
+      ? `<tr><td>Paid</td><td class="num">${cur} ${order.amountPaid}</td></tr>
+         <tr class="grand"><td>BALANCE</td><td class="num">${cur} ${order.total - order.amountPaid}</td></tr>`
+      : ''
+
   const totalsHtml = isKitchen
     ? ''
     : `<div class="rule"></div>
       <table class="totals">
         <tr><td>Subtotal</td><td class="num">${cur} ${order.subtotal}</td></tr>
-        ${
-          order.discount > 0
-            ? `<tr><td>Discount (${order.discountPercent}%)</td><td class="num">- ${cur} ${order.discount}</td></tr>`
-            : ''
-        }
+        ${extraRows.join('')}
         <tr class="grand"><td>TOTAL</td><td class="num">${cur} ${order.total}</td></tr>
+        ${balanceRows}
       </table>`
 
   const headerHtml = isKitchen
@@ -105,7 +124,7 @@ export function buildReceiptHtml(
   const footerHtml = isKitchen
     ? ''
     : `${qrHtml}<div class="rule"></div><div class="center small">${esc(settings.receiptFooter)}</div>
-       <div class="center powered">${xiomLogoDataUri() ? `<img class="xiom" src="${xiomLogoDataUri()}" /><br/>` : ''}<span class="small">Powered by XIOM - 0301-4442459</span></div>`
+       <div class="center powered">${settings.printLogo && xiomLogoDataUri() ? `<img class="xiom" src="${xiomLogoDataUri()}" /><br/>` : ''}${settings.printLogo ? '<span class="small">Powered by XIOM - 0301-4442459</span>' : ''}</div>`
 
   return `<!DOCTYPE html>
 <html>

@@ -156,6 +156,22 @@ export function registerIpcHandlers(): void {
       return { ok: false, error: err instanceof Error ? err.message : 'Print failed' }
     }
   })
+  ipcMain.handle('print:testMethod', async (_e, method: string) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      if (method === 'driver') {
+        const res = await printService.testDriverMethod()
+        return { ok: true, data: { method, ...res } }
+      }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const escpos = require('../printing/escpos-print.service')
+      const res = await escpos.testPrintMethod(method)
+      return { ok: true, data: { method, ...res } }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Test failed' }
+    }
+  })
+
   ipcMain.handle('print:test', async () => {
     try {
       await printService.printTest()

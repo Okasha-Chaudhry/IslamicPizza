@@ -163,6 +163,16 @@ export interface OrderPayment {
   createdAt: string
 }
 
+// How raw bytes reach the printer. Different machines need different routes,
+// so this is a setting the installer picks on site instead of a code change.
+export type PrintMethod = 'auto' | 'spooler' | 'share' | 'port' | 'driver'
+
+export interface PrintMethodResult {
+  method: PrintMethod
+  ok: boolean
+  detail: string
+}
+
 export interface AppSettings {
   restaurantName: string
   address: string
@@ -174,6 +184,11 @@ export interface AppSettings {
   kitchenPrinter: string
   receiptWidth: '58' | '80' | 'A4'
   charsPerLine: number
+  printMethod: PrintMethod
+  printerPort: string
+  cutFeedLines: number
+  cutStyle: 'full' | 'partial' | 'none'
+  printLogo: boolean
   receiptLogo: string
   paymentQr: string
 }
