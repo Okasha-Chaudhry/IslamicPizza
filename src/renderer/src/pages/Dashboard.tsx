@@ -58,7 +58,7 @@ export default function Dashboard(): React.JSX.Element {
 
       <div className="grid grid-cols-2 gap-3">
         <Button className="h-16 text-lg" onClick={() => navigate('/new-order')}>
-          <PlusCircle className="size-5" /> New Order (O)
+          <PlusCircle className="size-5" /> New Order
         </Button>
         <Button variant="outline" className="h-16 text-lg" onClick={() => navigate('/orders')}>
           <ReceiptText className="size-5" /> View Orders

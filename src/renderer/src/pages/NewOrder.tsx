@@ -53,8 +53,6 @@ export default function NewOrder(): React.JSX.Element {
   const [tables, setTables] = useState<NamedEntity[]>([])
   const [waiters, setWaiters] = useState<NamedEntity[]>([])
   const [query, setQuery] = useState('')
-  // Set once, applies to the next item picked - 30 naan in one action.
-  const [bulkQty, setBulkQty] = useState('')
   // The line just added or changed, flashed briefly so the cashier sees the
   // cart reacted without having to read it.
   const [flashKey, setFlashKey] = useState('')
@@ -94,7 +92,20 @@ export default function NewOrder(): React.JSX.Element {
       if ((e.ctrlKey && (e.key === 'k' || e.key === 'f')) || e.key === 'F3') {
         e.preventDefault()
         focusSearch()
+        return
       }
+      // One key per save action, so a busy counter never has to reach for the
+      // mouse. F3 stays on search, so these start at F1 and skip it.
+      const actions: Record<string, 'paid_print' | 'paid_only' | 'kitchen_slip' | 'print_receipt'> = {
+        F1: 'paid_print',
+        F2: 'paid_only',
+        F4: 'kitchen_slip',
+        F5: 'print_receipt'
+      }
+      const action = actions[e.key]
+      if (!action) return
+      e.preventDefault()
+      window.dispatchEvent(new CustomEvent('pos:cart-action', { detail: action }))
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('pos:focus-search', focusSearch)
@@ -206,10 +217,9 @@ export default function NewOrder(): React.JSX.Element {
           variantName: null,
           unitPrice: p.price
         },
-        Number(bulkQty) || 1
+        1
       )
       flash(p.id, null)
-      setBulkQty('')
       setQuery('')
       searchRef.current?.focus()
     }
@@ -225,10 +235,9 @@ export default function NewOrder(): React.JSX.Element {
         variantName: v.name,
         unitPrice: v.price
       },
-      Number(bulkQty) || 1
+      1
     )
     flash(variantProduct.id, v.id)
-    setBulkQty('')
     setVariantProduct(null)
     setQuery('')
     searchRef.current?.focus()
@@ -334,6 +343,26 @@ export default function NewOrder(): React.JSX.Element {
     setSaving(false)
     searchRef.current?.focus()
   }
+
+  // Wired here rather than in the key handler above, because the handler is
+  // registered once on mount and would otherwise capture a stale cart.
+  useEffect(() => {
+    function run(e: Event): void {
+      const action = (e as CustomEvent).detail as
+        | 'paid_print'
+        | 'paid_only'
+        | 'kitchen_slip'
+        | 'print_receipt'
+      if (saving || cart.lines.length === 0) return
+      if (cart.editingOrderId) {
+        void updateOrder()
+        return
+      }
+      void saveOrder(action)
+    }
+    window.addEventListener('pos:cart-action', run)
+    return () => window.removeEventListener('pos:cart-action', run)
+  })
 
   return (
     <div className="flex h-full">
@@ -494,7 +523,7 @@ export default function NewOrder(): React.JSX.Element {
           <Input
             ref={searchRef}
             className="h-11 pl-9 text-base"
-            placeholder="Search menu... (Ctrl+K)"
+            placeholder="Search menu..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -517,34 +546,6 @@ export default function NewOrder(): React.JSX.Element {
             >
               <X className="size-4" />
             </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2">
-          <span className="text-xs font-medium text-muted-foreground">Quantity for next item</span>
-          <Input
-            type="number"
-            min="1"
-            className="h-9 w-24 text-center text-base font-bold"
-            placeholder="1"
-            value={bulkQty}
-            onChange={(e) => setBulkQty(e.target.value)}
-          />
-          {[5, 10, 15, 20, 30].map((n) => (
-            <Button
-              key={n}
-              variant={String(n) === bulkQty ? 'default' : 'outline'}
-              size="sm"
-              className="h-9 w-11"
-              onClick={() => setBulkQty(String(n))}
-            >
-              {n}
-            </Button>
-          ))}
-          {bulkQty !== '' && (
-            <Button variant="ghost" size="sm" className="h-9" onClick={() => setBulkQty('')}>
-              Clear
-            </Button>
           )}
         </div>
 

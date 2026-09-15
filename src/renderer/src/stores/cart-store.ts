@@ -89,8 +89,9 @@ export const useCartStore = create<CartState>((set) => ({
 
   setQuantity: (key, qty) =>
     set((state) => {
-      const n = Math.round(qty)
-      if (n <= 0) return { lines: state.lines.filter((l) => l.key !== key) }
+      // Clearing the box mid-edit must not delete the line; the smallest a line
+      // can go is 1.
+      const n = Math.max(1, Math.round(qty) || 1)
       return { lines: state.lines.map((l) => (l.key === key ? { ...l, quantity: n } : l)) }
     }),
 
@@ -99,11 +100,13 @@ export const useCartStore = create<CartState>((set) => ({
       lines: state.lines.map((l) => (l.key === key ? { ...l, quantity: l.quantity + 1 } : l))
     })),
 
+  // Minus stops at 1. Removing a line is the bin icon's job, so a stray tap on
+  // minus never silently drops an item from the order.
   decrement: (key) =>
     set((state) => ({
-      lines: state.lines
-        .map((l) => (l.key === key ? { ...l, quantity: l.quantity - 1 } : l))
-        .filter((l) => l.quantity > 0)
+      lines: state.lines.map((l) =>
+        l.key === key ? { ...l, quantity: Math.max(1, l.quantity - 1) } : l
+      )
     })),
 
   removeLine: (key) => set((state) => ({ lines: state.lines.filter((l) => l.key !== key) })),
