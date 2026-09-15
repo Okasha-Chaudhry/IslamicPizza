@@ -55,6 +55,9 @@ export default function NewOrder(): React.JSX.Element {
   const [query, setQuery] = useState('')
   // Set once, applies to the next item picked - 30 naan in one action.
   const [bulkQty, setBulkQty] = useState('')
+  // The line just added or changed, flashed briefly so the cashier sees the
+  // cart reacted without having to read it.
+  const [flashKey, setFlashKey] = useState('')
   const [activeCat, setActiveCat] = useState<number | null>(null)
   const [variantProduct, setVariantProduct] = useState<ProductWithVariants | null>(null)
   const [error, setError] = useState('')
@@ -185,6 +188,12 @@ export default function NewOrder(): React.JSX.Element {
     setShowCustSuggestions(false)
   }
 
+  function flash(productId: number, variantId: number | null): void {
+    const key = productId + ':' + (variantId ?? 'base')
+    setFlashKey(key)
+    setTimeout(() => setFlashKey((k) => (k === key ? '' : k)), 400)
+  }
+
   function pickProduct(p: ProductWithVariants): void {
     if (p.hasVariants) {
       setVariantProduct(p)
@@ -199,6 +208,7 @@ export default function NewOrder(): React.JSX.Element {
         },
         Number(bulkQty) || 1
       )
+      flash(p.id, null)
       setBulkQty('')
       setQuery('')
       searchRef.current?.focus()
@@ -217,6 +227,7 @@ export default function NewOrder(): React.JSX.Element {
       },
       Number(bulkQty) || 1
     )
+    flash(variantProduct.id, v.id)
     setBulkQty('')
     setVariantProduct(null)
     setQuery('')
@@ -620,7 +631,7 @@ export default function NewOrder(): React.JSX.Element {
 
         <div className="flex-1 space-y-2 overflow-y-auto p-2">
           {cart.lines.map((l) => (
-            <div key={l.key} className="rounded-md border p-2">
+            <div key={l.key} className={cn('rounded-md border p-2', flashKey === l.key && 'pos-flash')}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{l.productName}</p>
@@ -727,11 +738,13 @@ export default function NewOrder(): React.JSX.Element {
           )}
           <div className="flex items-center justify-between border-t pt-2 text-lg font-bold">
             <span>Total</span>
-            <span>Rs {total}</span>
+            <span key={total} className="pos-pop">Rs {total}</span>
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {savedMsg && <p className="text-sm text-green-600 dark:text-green-500">{savedMsg}</p>}
+          {error && <p className="pos-slide-in text-sm text-destructive">{error}</p>}
+          {savedMsg && (
+            <p className="pos-slide-in text-sm text-green-600 dark:text-green-500">{savedMsg}</p>
+          )}
 
           {cart.editingOrderId ? (
             <div className="grid gap-2 pt-1">

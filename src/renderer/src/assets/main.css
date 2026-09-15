@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
@@ -81,4 +81,50 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* POS animations: short and only where the cashier needs confirmation that
+   something happened. Anything longer starts to feel slow by the fiftieth
+   order of the day, so nothing here runs past 200ms. */
+@keyframes pos-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pos-flash {
+  0% { background-color: color-mix(in oklch, var(--primary) 18%, transparent); }
+  100% { background-color: transparent; }
+}
+
+@keyframes pos-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pos-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pos-slide-in { animation: pos-slide-in 150ms ease-out; }
+.pos-flash { animation: pos-flash 400ms ease-out; }
+.pos-pop { animation: pos-pop 150ms ease-out; }
+
+.pos-spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: pos-spin 600ms linear infinite;
+}
+
+/* A cashier who tapped a button should never wonder whether it registered. */
+button:active:not(:disabled) { transform: translateY(1px); }
+button { transition: transform 60ms ease-out, background-color 120ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pos-slide-in, .pos-flash, .pos-pop, .pos-spinner { animation: none; }
+  button:active:not(:disabled) { transform: none; }
 }
