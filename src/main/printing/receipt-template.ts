@@ -1,5 +1,23 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+import { app } from 'electron'
+
+// Same resolution as the raw route: a stored file name is looked up in
+// userData, and an older full path still works if the file is there.
+function userImageUri(stored: string): string {
+  if (!stored) return ''
+  const candidates = [stored, join(app.getPath('userData'), stored)]
+  const base = stored.split(/[\\\\/]/).pop()
+  if (base) candidates.push(join(app.getPath('userData'), base))
+  for (const p of candidates) {
+    try {
+      if (existsSync(p)) return 'data:image/png;base64,' + readFileSync(p).toString('base64')
+    } catch {
+      // try the next candidate
+    }
+  }
+  return ''
+}
 
 function xiomLogoDataUri(): string {
   const candidates = [
@@ -109,7 +127,7 @@ export function buildReceiptHtml(
 
   const headerHtml = isKitchen
     ? `<div class="center bold big">KITCHEN SLIP</div>`
-    : `${settings.receiptLogo ? `<div class="center"><img class="logo" src="file://${settings.receiptLogo.replace(/\\/g, '/')}" /></div>` : ''}<div class="center bold big">${esc(settings.restaurantName)}</div>
+    : `${settings.receiptLogo ? `<div class="center"><img class="logo" src="${userImageUri(settings.receiptLogo)}" /></div>` : ''}<div class="center bold big">${esc(settings.restaurantName)}</div>
       ${settings.receiptHeader ? `<div class="center bold subhead">${esc(settings.receiptHeader)}</div>` : ''}
       <div class="center small">${esc(settings.address)}</div>
       <div class="center small">${esc(settings.phone)}</div>`
@@ -117,7 +135,7 @@ export function buildReceiptHtml(
   const qrHtml =
     !isKitchen && settings.paymentQr
       ? `<div class="rule"></div>
-         <div class="center"><img class="qr" src="file://${settings.paymentQr.replace(/\\/g, '/')}" /></div>
+         <div class="center"><img class="qr" src="${userImageUri(settings.paymentQr)}" /></div>
          <div class="center small">Scan to pay</div>`
       : ''
 

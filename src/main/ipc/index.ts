@@ -70,7 +70,13 @@ export function registerIpcHandlers(): void {
       const destName = kind === 'logo' ? 'receipt-logo.png' : 'payment-qr.png'
       const destPath = join(app.getPath('userData'), destName)
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const sharp = require('sharp')
+      let sharp
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        sharp = require('sharp')
+      } catch {
+        return { ok: false, error: 'Image conversion is unavailable on this PC (sharp did not load). Reinstall the app.' }
+      }
       await sharp(result.filePaths[0])
         .flatten({ background: '#ffffff' })
         .resize(360, 360, { fit: 'inside', withoutEnlargement: false })
@@ -79,7 +85,10 @@ export function registerIpcHandlers(): void {
         .png()
         .toFile(destPath)
       const key = kind === 'logo' ? 'receiptLogo' : 'paymentQr'
-      settingsService.saveSettings({ [key]: destPath })
+      // Store the file name only. A full path breaks the moment the database
+      // moves to another machine or the Windows user name differs, which is why
+      // an uploaded logo silently stopped printing on client PCs.
+      settingsService.saveSettings({ [key]: destName })
       return { ok: true, data: destPath }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Image failed' }

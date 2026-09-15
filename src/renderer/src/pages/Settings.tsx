@@ -155,7 +155,7 @@ export default function Settings(): React.JSX.Element {
               </Button>
             )}
             <span className="text-xs text-muted-foreground">
-              {settings.receiptLogo ? 'Logo set' : 'No logo'}
+              {settings.receiptLogo ? 'Logo set (' + settings.receiptLogo + ')' : 'No logo'}
             </span>
           </div>
         </div>
@@ -188,7 +188,7 @@ export default function Settings(): React.JSX.Element {
               </Button>
             )}
             <span className="text-xs text-muted-foreground">
-              {settings.paymentQr ? 'QR set' : 'No QR'}
+              {settings.paymentQr ? 'QR set (' + settings.paymentQr + ')' : 'No QR'}
             </span>
           </div>
         </div>

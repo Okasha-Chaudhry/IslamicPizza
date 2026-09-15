@@ -30,6 +30,20 @@ function layout(settings: AppSettings): Layout {
   return { width, qtyW, amtW }
 }
 
+// Resolve an uploaded image (logo/QR) saved in userData. Accepts a bare file
+// name (current) or a full path (older installs), and returns '' if missing so
+// the caller can report it instead of printing nothing.
+function userImagePath(stored: string): string {
+  if (!stored) return ''
+  if (existsSync(stored)) return stored
+  const inUserData = join(app.getPath('userData'), stored)
+  if (existsSync(inUserData)) return inUserData
+  const base = stored.split(/[\\\\/]/).pop() || stored
+  const byBase = join(app.getPath('userData'), base)
+  if (existsSync(byBase)) return byBase
+  return ''
+}
+
 function resourcePath(file: string): string {
   const devPath = join(process.cwd(), 'resources', file)
   if (existsSync(devPath)) return devPath
@@ -257,10 +271,15 @@ export async function printReceiptEscpos(
 
   printer.alignCenter()
   if (settings.receiptLogo) {
-    try {
-      await printer.printImage(settings.receiptLogo)
-    } catch {
-      // logo failed, skip
+    const logoPath = userImagePath(settings.receiptLogo)
+    if (!logoPath) {
+      logLine('receipt logo not found on disk: ' + settings.receiptLogo)
+    } else {
+      try {
+        await printer.printImage(logoPath)
+      } catch (err) {
+        logLine('receipt logo failed to print: ' + (err instanceof Error ? err.message : String(err)))
+      }
     }
   }
   printer.bold(true)
@@ -327,6 +346,21 @@ export async function printReceiptEscpos(
 
   printer.alignCenter()
   printer.drawLine()
+  // The payment QR was only ever wired into the HTML template, so on the raw
+  // route an uploaded QR never reached the paper.
+  if (settings.paymentQr) {
+    const qrPath = userImagePath(settings.paymentQr)
+    if (!qrPath) {
+      logLine('payment QR not found on disk: ' + settings.paymentQr)
+    } else {
+      try {
+        await printer.printImage(qrPath)
+        printer.println('Scan to pay')
+      } catch (err) {
+        logLine('payment QR failed to print: ' + (err instanceof Error ? err.message : String(err)))
+      }
+    }
+  }
   if (settings.receiptFooter) printer.println(settings.receiptFooter)
   if (settings.printLogo) {
     try {
